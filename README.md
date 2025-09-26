@@ -14,6 +14,56 @@ This Security Score Proof of Concept is a lightweight Nuxt + Nitro web app that 
 - 🎨 Clean and intuitive Nuxt frontend for quick lookups and demos
 - 🧩 Fully open-source, easy to extend with additional APIs or custom scoring logic
 
+## Development Guide
+
+This project is built with **Nuxt 3 + Nitro** and uses **pnpm** as the package manager.
+
+### Prerequisites
+
+- [Node.js 22+](https://nodejs.org/en/)
+- [pnpm](https://pnpm.io/) installed globally:
+  ```bash
+  corepack enable
+  corepack prepare pnpm@latest --activate
+  ```
+
+### Setup
+
+Install all dependencies:
+
+```bash
+pnpm install
+```
+
+### Development Server
+
+Start the development server on [http://localhost:3000](http://localhost:3000):
+
+```bash
+pnpm dev
+```
+
+Hot module replacement (HMR) is enabled, so changes are applied instantly.
+
+### Production
+
+Build the application for production:
+
+```bash
+pnpm build
+```
+
+Preview the production build locally:
+
+```bash
+pnpm preview
+```
+
+### Deployment
+
+Nuxt/Nitro supports multiple deployment targets (Node, serverless, edge, etc.).
+Refer to the [Nuxt Deployment Docs](https://nuxt.com/docs/getting-started/deployment) for configuration.
+
 ## License
 
 This project is licensed under the [Apache License](https://github.com/nicokempe/secscore/blob/main/LICENSE).
