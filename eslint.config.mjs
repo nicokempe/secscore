@@ -10,6 +10,16 @@ export default withNuxt(
     },
   },
   {
+    files: ['**/*.vue'],
+    languageOptions: {
+      sourceType: 'module',
+      parserOptions: {
+        sourceType: 'module',
+        parser: tsParser,
+      },
+    },
+  },
+  {
     plugins: {
       '@typescript-eslint': tseslint,
     },
