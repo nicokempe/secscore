@@ -10,7 +10,7 @@ import packageInfo from '../../package.json';
  *
  * @returns { status: number, version: string, health: object }
  */
-export default defineEventHandler(async (_event) => {
+export default defineEventHandler(() => {
   const start: number = Date.now();
 
   // Gather system information
