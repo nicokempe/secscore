@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 p-4">
+  <div class="min-h-screen bg-gradient-to-r from-neutral-900 via-emerald-900/40 to-neutral-900 p-4">
     <div class="max-w-4xl mx-auto pt-12">
       <!-- Hero Section -->
       <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8 mb-8 text-center">
