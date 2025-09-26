@@ -17,8 +17,8 @@ export default defineEventHandler(() => {
   const uptime: number = process.uptime();
   const currentTime: string = new Date().toISOString();
   const timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const memoryUsage: NodeJS.MemoryUsage = process.memoryUsage();
-  const cpuUsage: NodeJS.CpuUsage = process.cpuUsage();
+  const memoryUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
   const freeMemoryPercentage: string = ((os.freemem() / os.totalmem()) * 100).toFixed(2);
   const nodeVersion: string = process.version;
 
