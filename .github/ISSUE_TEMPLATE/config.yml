@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Email
+    url: mailto:security@nicokempe.de
+    about: For really urgent questions or security reports, please email me directly.
+  - name: Discord
+    url: https://discord.gg/t9frQmmqPe
+    about: Ask questions and discuss with other developers in real time!
