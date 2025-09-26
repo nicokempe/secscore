@@ -1,29 +1,6 @@
 export default defineNuxtConfig({
-  compatibilityDate: '2025-09-26',
-  devtools: { enabled: true },
   modules: ['@nuxt/eslint', '@nuxt/test-utils', '@nuxtjs/turnstile', '@nuxtjs/tailwindcss'],
-  eslint: {
-    config: {
-      stylistic: true,
-    },
-  },
-  nitro: {
-    preset: 'cloudflare_module',
-    experimental: {
-      openAPI: true,
-    },
-  },
-  tailwindcss: {
-    config: {
-      content: ['./app/pages/**/*.{vue,js,ts}', './app/components/**/*.{vue,js,ts}', './app/layouts/**/*.{vue,js,ts}'],
-    },
-  },
-  turnstile: {
-    siteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY,
-  },
-  css: [
-    '~/assets/css/tailwind.css',
-  ],
+  devtools: { enabled: true },
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {
@@ -43,4 +20,27 @@ export default defineNuxtConfig({
       ],
     },
   },
-})
+  css: [
+    '~/assets/css/tailwind.css',
+  ],
+  compatibilityDate: '2025-09-26',
+  nitro: {
+    preset: 'cloudflare_module',
+    experimental: {
+      openAPI: true,
+    },
+  },
+  eslint: {
+    config: {
+      stylistic: true,
+    },
+  },
+  tailwindcss: {
+    config: {
+      content: ['./app/pages/**/*.{vue,js,ts}', './app/components/**/*.{vue,js,ts}', './app/layouts/**/*.{vue,js,ts}'],
+    },
+  },
+  turnstile: {
+    siteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY,
+  },
+});

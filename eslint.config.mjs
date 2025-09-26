@@ -1,7 +1,18 @@
 import withNuxt from './.nuxt/eslint.config.mjs';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
 
 export default withNuxt(
   {
+    files: ['**/*.ts', '**/*.tsx', '**/*.cts', '**/*.mts'],
+    languageOptions: {
+      parser: tsParser,
+    },
+  },
+  {
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
     rules: {
       // Errors
       '@stylistic/indent': ['error', 2],
