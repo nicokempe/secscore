@@ -51,7 +51,7 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 useSeoMeta({
   title: 'SecScore • Time-aware CVE Threat Scoring (Nuxt + Nitro)',
   description: 'Open-source PoC to enrich CVEs with public signals (NVD, EPSS, CISA KEV, ExploitDB, OSV) and compute a time-aware SecScore for realistic prioritization. Paste a CVE ID and get instant context.',
