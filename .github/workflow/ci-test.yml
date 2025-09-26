@@ -1,0 +1,76 @@
+name: ci-test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'server/**'
+      - 'tests/**'
+      - 'public/**'
+      - 'package.json'
+      - 'playwright.config.ts'
+      - 'pnpm-lock.yaml'
+      - 'nuxt.config.ts'
+      - 'tailwind.config.ts'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
+      - 'eslint.config.mjs'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'server/**'
+      - 'tests/**'
+      - 'public/**'
+      - 'package.json'
+      - 'playwright.config.ts'
+      - 'pnpm-lock.yaml'
+      - 'nuxt.config.ts'
+      - 'tailwind.config.ts'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
+      - 'eslint.config.mjs'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [ 22 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Typecheck
+        run: pnpm exec nuxi typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm run build
+
+      - name: Unit Tests
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm run test:unit
