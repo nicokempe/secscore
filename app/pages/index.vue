@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 p-4">
-    <div class="max-w-4xl mx-auto pt-12">
+  <div class="px-4 pb-16 pt-20 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-4xl">
       <!-- Hero Section -->
       <div class="glass-card p-8 mb-8 text-center">
         <h1 class="text-4xl font-bold text-neutral-100 mb-4">
