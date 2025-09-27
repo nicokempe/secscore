@@ -30,14 +30,14 @@
             <button
               type="submit"
               :disabled="isLoading"
-              class="px-6 py-3 bg-cyan-600 enabled:hover:bg-cyan-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-500/60 bg-cyan-500/10 px-6 py-3 text-base font-medium text-cyan-200 transition duration-200 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed h-full"
             >
               <span v-if="!isLoading">Analyze</span>
               <div
                 v-else
                 class="flex items-center gap-2"
               >
-                <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div class="w-4 h-4 border-2 border-cyan-300/30 border-t-cyan-200 rounded-full animate-spin" />
                 <span>Analyzing...</span>
               </div>
             </button>
