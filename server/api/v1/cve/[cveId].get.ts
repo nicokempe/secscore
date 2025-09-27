@@ -5,7 +5,7 @@ import { fetchNvdMetadata } from '~~/server/lib/fetchers';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
 import { applyPerIpRateLimit } from '~~/server/lib/rate-limit';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
-import type { CveMetadata } from '~~/server/types/secscore';
+import type { CveMetadata } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
 

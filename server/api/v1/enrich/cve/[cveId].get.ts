@@ -7,7 +7,7 @@ import { readModelParams } from '~~/server/lib/model-params';
 import { asymmetricLaplaceCdf, buildExplanation, computeSecScore, inferCategory } from '~~/server/lib/secscore-engine';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
 import { applyPerIpRateLimit } from '~~/server/lib/rate-limit';
-import type { SecScoreResponse } from '~~/server/types/secscore';
+import type { SecScoreResponse } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
 

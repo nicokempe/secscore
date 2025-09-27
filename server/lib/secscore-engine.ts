@@ -1,5 +1,5 @@
 import { E_MAX_V31, E_MIN_V31, EPSS_BLEND_WEIGHT, EXPLOITPROB_WEIGHT, KEV_MIN_FLOOR, POC_BONUS_MAX } from '~~/server/lib/constants';
-import type { EpssSignal, ExploitEvidence } from '~~/server/types/secscore';
+import type { EpssSignal, ExploitEvidence } from '~/types/secscore.types';
 
 const BASE_DEFAULT = 0;
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { $fetch } from 'ofetch';
 import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
-import type { CveMetadata, EpssSignal, ExploitEvidence } from '~~/server/types/secscore';
+import type { CveMetadata, EpssSignal, ExploitEvidence } from '~/types/secscore.types';
 
 interface NvdDescription {
   lang?: string
