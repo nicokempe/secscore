@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
 import { CACHE_TTL_MS } from '~~/server/lib/constants';
@@ -7,8 +8,12 @@ import { normalizeServerError } from '~~/server/lib/error-normalizer';
 import type { CveMetadata } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
+const MODEL_VERSION = '1';
 
 export default defineEventHandler(async (event) => {
+  const requestId = randomUUID();
+  setResponseHeader(event, 'X-Request-Id', requestId);
+  setResponseHeader(event, 'SecScore-Model-Version', MODEL_VERSION);
   try {
     const cveId: string = getRouterParam(event, 'cveId') ?? '';
     if (!isValidCve(cveId)) {
@@ -18,15 +23,22 @@ export default defineEventHandler(async (event) => {
     const cacheKey: string = `cve:${cveId}`;
     const cached = lruGet<CveMetadata>(cacheKey);
     if (cached) {
+      const payload = cached.modelVersion === MODEL_VERSION ? cached : { ...cached, modelVersion: MODEL_VERSION };
+      if (payload !== cached) {
+        lruSet(cacheKey, payload, CACHE_TTL_MS);
+      }
       setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
-      return cached;
+      setResponseHeader(event, 'X-Cache', 'HIT');
+      return payload;
     }
 
     const metadata: CveMetadata = await fetchNvdMetadata(cveId);
-    lruSet(cacheKey, metadata, CACHE_TTL_MS);
+    const responsePayload: CveMetadata = { ...metadata, modelVersion: MODEL_VERSION };
+    lruSet(cacheKey, responsePayload, CACHE_TTL_MS);
 
     setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
-    return metadata;
+    setResponseHeader(event, 'X-Cache', 'MISS');
+    return responsePayload;
   }
   catch (error) {
     const normalized = normalizeServerError(error);
