@@ -99,7 +99,7 @@
               EPSS Score
             </p>
             <p class="text-gray-100 font-medium">
-              {{ mockData.epss?.score.toFixed(2) }}
+              {{ formatEpssScore(mockData.epss?.score) }}
             </p>
           </div>
           <div class="text-center">
