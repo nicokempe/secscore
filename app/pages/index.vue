@@ -737,6 +737,24 @@ useHead({
       href: '/favicon.ico',
     },
   ],
+  meta: [
+    {
+      name: 'application-name',
+      content: 'SecScore',
+    },
+    {
+      name: 'theme-color',
+      content: '#0f172a',
+    },
+    {
+      name: 'author',
+      content: 'Nico Kempe',
+    },
+    {
+      name: 'robots',
+      content: 'index, follow',
+    },
+  ],
 });
 </script>
 

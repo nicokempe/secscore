@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://secscore.nicokempe.de/sitemap.xml
