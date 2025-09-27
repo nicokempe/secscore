@@ -2,20 +2,32 @@
 
 This directory hosts the Nitro server logic for the SecScore proof-of-concept. The implementation relies only on public data feeds and in-process memory structures (no database or Redis).
 
-## Updating the ExploitDB index
+## Refreshing bundled datasets
 
-The service reads `server/data/exploitdb-index.json` at runtime. To refresh the dataset, replace the file with the latest subset of ExploitDB metadata that maps CVE identifiers to exploit entries. The file should contain an array of objects with the following fields:
+### CISA Known Exploited Vulnerabilities (KEV)
+
+The authoritative KEV feed is published by CISA at <https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json>. To update the local snapshot used by the server:
+
+```bash
+curl -s https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json \
+  -o server/data/kev.json
+```
+
+The health endpoint (`/api/health`) surfaces the `catalogVersion` and `dateReleased` fields so downstream systems can monitor dataset freshness.
+
+### ExploitDB snapshot
+
+`server/data/exploitdb-index.json` stores a curated subset of ExploitDB entries. Each item only needs three fields:
 
 ```json
 {
-  "source": "exploitdb",
-  "url": "https://www.exploit-db.com/exploits/41471",
-  "publishedDate": "2017-04-09T00:00:00Z",
-  "cve": "CVE-2017-0144"
+  "cveId": "CVE-2017-0144",
+  "url": "https://www.exploit-db.com/exploits/41738",
+  "publishedDate": "2017-04-15T00:00:00Z"
 }
 ```
 
-The backend automatically reloads the file on the next process start.
+To refresh the dataset, export the latest CVE-to-ExploitDB mappings from the upstream source (CSV export, API, or scraped feed), transform to the structure above, and overwrite the file. The backend reloads the snapshot at process start, so a restart is required to pick up changes.
 
 ## Tuning model parameters
 

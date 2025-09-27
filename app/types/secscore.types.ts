@@ -1,3 +1,30 @@
+export interface OsvRangeEvent {
+  /** Version introduction marker or lower bound (can be semver or commit hash). */
+  introduced: string | null
+  /** Version at which the vulnerability is fixed, if provided. */
+  fixed: string | null
+  /** Explicit last affected version marker supplied by OSV. */
+  lastAffected: string | null
+  /** Range limit used by OSV (e.g., "< 1.2.3" for generic ranges). */
+  limit: string | null
+}
+
+export interface OsvVersionRange {
+  /** Type of range (ECOSYSTEM, GIT, SEMVER, etc.). */
+  type: string | null
+  /** Ordered events describing introduced/fixed boundaries. */
+  events: OsvRangeEvent[]
+}
+
+export interface OsvAffectedPackage {
+  /** Package ecosystem, such as npm, PyPI, Maven, Go, etc. */
+  ecosystem: string | null
+  /** Package name as reported by OSV. */
+  package: string | null
+  /** Version ranges describing affected releases. */
+  ranges: OsvVersionRange[]
+}
+
 /**
  * Canonical CVE metadata merged from public sources (primarily NVD; OSV optional).
  */
@@ -14,6 +41,8 @@ export interface CveMetadata {
   cvssVector: string | null
   /** Raw CPE strings when present; an empty array if unavailable. */
   cpe: string[]
+  /** Model version associated with derived metadata fields. */
+  modelVersion: string
 }
 
 /** EPSS signal returned from FIRST (values in [0..1]). */
@@ -60,8 +89,12 @@ export interface SecScoreResponse {
   exploits: ExploitEvidence[]
   /** True if CVE is in CISA KEV. */
   kev: boolean
+  /** OSV affected package breakdown, when OSV has data for the CVE. */
+  osv: OsvAffectedPackage[] | null
   /** Human-readable reasons and provenance (kept short and actionable). */
   explanation: Array<{ title: string, detail: string, source: string }>
   /** ISO8601 timestamp when this response was computed. */
   computedAt: string
+  /** Model version embedded in the API response for cache invalidation. */
+  modelVersion: string
 }

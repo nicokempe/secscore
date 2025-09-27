@@ -1,5 +1,6 @@
 import os from 'os';
 import packageInfo from '../../package.json';
+import { getKevStatus } from '~~/server/plugins/kev-loader';
 
 /**
  * GET /api/health
@@ -10,7 +11,7 @@ import packageInfo from '../../package.json';
  *
  * @returns { status: number, version: string, health: object }
  */
-export default defineEventHandler(() => {
+export default defineEventHandler(async () => {
   const start: number = Date.now();
 
   // Gather system information
@@ -46,6 +47,8 @@ export default defineEventHandler(() => {
 
   // Measure response time
   const responseTime: string = `${Date.now() - start} ms`;
+
+  const kev = getKevStatus();
 
   // Structured response
   return {
@@ -91,6 +94,16 @@ export default defineEventHandler(() => {
       release: os.release(),
       type: os.type(),
     },
+    datasets: {
+      kev: {
+        catalogVersion: null,
+        lastUpdated: kev.updatedAt ?? null,
+        count: kev.count,
+      },
+    },
+    kevIndexLoaded: kev.count > 0,
+    kevCount: kev.count,
+    kevUpdatedAt: kev.updatedAt ?? null,
     response_time: responseTime,
   };
 });
@@ -186,9 +199,38 @@ defineRouteMeta({
                     type: { type: 'string' },
                   },
                 },
+                datasets: {
+                  type: 'object',
+                  properties: {
+                    kev: {
+                      type: 'object',
+                      properties: {
+                        catalogVersion: { type: 'string', nullable: true },
+                        lastUpdated: { type: 'string', format: 'date-time', nullable: true },
+                        count: { type: 'number', minimum: 0 },
+                      },
+                    },
+                  },
+                },
+                kevIndexLoaded: { type: 'boolean' },
+                kevCount: { type: 'number', minimum: 0 },
+                kevUpdatedAt: { type: 'string', format: 'date-time', nullable: true },
                 response_time: { type: 'string', example: '4 ms' },
               },
-              required: ['status', 'version', 'health', 'time', 'memory', 'cpu', 'system', 'response_time'],
+              required: [
+                'status',
+                'version',
+                'health',
+                'time',
+                'memory',
+                'cpu',
+                'system',
+                'datasets',
+                'kevIndexLoaded',
+                'kevCount',
+                'kevUpdatedAt',
+                'response_time',
+              ],
             },
             examples: {
               example: {
@@ -224,6 +266,16 @@ defineRouteMeta({
                     release: '5.15.0-102',
                     type: 'Linux',
                   },
+                  datasets: {
+                    kev: {
+                      catalogVersion: null,
+                      lastUpdated: '2025-09-25T16:17:38.0447Z',
+                      count: 1250,
+                    },
+                  },
+                  kevIndexLoaded: true,
+                  kevCount: 1250,
+                  kevUpdatedAt: '2025-09-25T16:17:38.0447Z',
                   response_time: '3 ms',
                 },
               },
