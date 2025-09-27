@@ -1,16 +1,22 @@
+import { randomUUID } from 'node:crypto';
 import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
 import { CACHE_TTL_MS } from '~~/server/lib/constants';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
-import { fetchEpss, fetchNvdMetadata, isInKev, loadKevIndex, lookupExploitDb } from '~~/server/lib/fetchers';
+import { fetchEpss, fetchNvdMetadata, fetchOsv, lookupExploitDb } from '~~/server/lib/fetchers';
 import { readModelParams } from '~~/server/lib/model-params';
 import { asymmetricLaplaceCdf, buildExplanation, computeSecScore, inferCategory } from '~~/server/lib/secscore-engine';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
+import { getKevStatus, isInKev } from '~~/server/plugins/kev-loader';
 import type { SecScoreResponse } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
+const MODEL_VERSION = '1';
 
 export default defineEventHandler(async (event) => {
+  const requestId = randomUUID();
+  setResponseHeader(event, 'X-Request-Id', requestId);
+  setResponseHeader(event, 'SecScore-Model-Version', MODEL_VERSION);
   try {
     const cveId = getRouterParam(event, 'cveId') ?? '';
     if (!isValidCve(cveId)) {
@@ -20,13 +26,24 @@ export default defineEventHandler(async (event) => {
     const cacheKey = `enrich:${cveId}`;
     const cached = lruGet<SecScoreResponse>(cacheKey);
     if (cached) {
+      const payload = cached.modelVersion === MODEL_VERSION ? cached : { ...cached, modelVersion: MODEL_VERSION };
+      if (payload !== cached) {
+        lruSet(cacheKey, payload, CACHE_TTL_MS);
+      }
       setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
-      return cached;
+      setResponseHeader(event, 'X-Cache', 'HIT');
+      const latestKev = getKevStatus();
+      if (latestKev.updatedAt) {
+        setResponseHeader(event, 'X-KEV-Updated-At', latestKev.updatedAt);
+      }
+      return payload;
     }
 
-    const metadata = await fetchNvdMetadata(cveId);
-    const epss = await fetchEpss(cveId);
-    await loadKevIndex();
+    const [metadata, epss, osv] = await Promise.all([
+      fetchNvdMetadata(cveId),
+      fetchEpss(cveId),
+      fetchOsv(cveId),
+    ]);
     const kev = isInKev(cveId);
     const exploits = lookupExploitDb(cveId);
 
@@ -59,6 +76,7 @@ export default defineEventHandler(async (event) => {
       epss,
       exploits,
       kev,
+      osv,
       explanation: buildExplanation({
         kev,
         exploits,
@@ -71,10 +89,16 @@ export default defineEventHandler(async (event) => {
         secscore,
       }),
       computedAt: new Date().toISOString(),
+      modelVersion: MODEL_VERSION,
     };
 
     lruSet(cacheKey, response, CACHE_TTL_MS);
     setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
+    setResponseHeader(event, 'X-Cache', 'MISS');
+    const latestKev = getKevStatus();
+    if (latestKev.updatedAt) {
+      setResponseHeader(event, 'X-KEV-Updated-At', latestKev.updatedAt);
+    }
     return response;
   }
   catch (error) {

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { $fetch } from 'ofetch';
 import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
-import type { CveMetadata, EpssSignal, ExploitEvidence } from '~/types/secscore.types';
+import type { CveMetadata, EpssSignal, ExploitEvidence, OsvAffectedPackage } from '~/types/secscore.types';
 
 interface NvdDescription {
   lang?: string
@@ -51,20 +51,39 @@ interface NvdResponse {
   vulnerabilities?: NvdVulnerability[]
 }
 
-interface KevEntry {
-  cveID?: string
-}
-
 interface ExploitDbRecord {
-  source?: string
   url?: string
   publishedDate?: string
-  cve?: string
+  cveId?: string
 }
 
-let kevLoaded = false;
-const kevSet = new Set<string>();
 let exploitDbRecords: ExploitDbRecord[] | null = null;
+
+interface OsvEvent {
+  introduced?: string
+  fixed?: string
+  last_affected?: string
+  limit?: string
+}
+
+interface OsvRange {
+  type?: string
+  events?: OsvEvent[]
+}
+
+interface OsvPackage {
+  ecosystem?: string
+  name?: string
+}
+
+interface OsvAffected {
+  package?: OsvPackage
+  ranges?: OsvRange[]
+}
+
+interface OsvResponse {
+  affected?: OsvAffected[]
+}
 
 interface HttpErrorLike {
   statusCode: number
@@ -93,6 +112,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
     cvssBase: null,
     cvssVector: null,
     cpe: [],
+    modelVersion: '1',
   };
 
   try {
@@ -151,6 +171,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       cvssBase,
       cvssVector,
       cpe: Array.from(cpeSet),
+      modelVersion: '1',
     };
   }
   catch (error) {
@@ -204,40 +225,6 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
   }
 }
 
-/**
- * Loads the local CISA KEV JSON file (if present) and populates an in-memory lookup set.
- */
-export async function loadKevIndex(): Promise<void> {
-  if (kevLoaded) {
-    return;
-  }
-
-  try {
-    const { readFile } = await import('node:fs/promises');
-    const kevPath = resolve(process.cwd(), 'server/data/kev.json');
-    const file = await readFile(kevPath, 'utf8');
-    const parsed = JSON.parse(file) as { vulnerabilities?: KevEntry[] };
-    for (const entry of parsed.vulnerabilities ?? []) {
-      if (entry.cveID) {
-        kevSet.add(entry.cveID);
-      }
-    }
-  }
-  catch {
-    // Intentionally ignore missing or malformed KEV files.
-  }
-  finally {
-    kevLoaded = true;
-  }
-}
-
-/**
- * Returns whether a CVE is present in the loaded KEV index.
- */
-export function isInKev(cveId: string): boolean {
-  return kevSet.has(cveId);
-}
-
 function loadExploitDbIndex(): void {
   if (exploitDbRecords) {
     return;
@@ -246,7 +233,7 @@ function loadExploitDbIndex(): void {
     const filePath = resolve(process.cwd(), 'server/data/exploitdb-index.json');
     const fileContents = readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(fileContents) as ExploitDbRecord[];
-    exploitDbRecords = parsed.filter(record => record.source === 'exploitdb');
+    exploitDbRecords = parsed.filter(record => typeof record.cveId === 'string');
   }
   catch {
     exploitDbRecords = [];
@@ -259,7 +246,7 @@ function loadExploitDbIndex(): void {
 export function lookupExploitDb(cveId: string): ExploitEvidence[] {
   loadExploitDbIndex();
   const target = cveId.toUpperCase();
-  const matches = (exploitDbRecords ?? []).filter(record => record.cve?.toUpperCase() === target);
+  const matches = (exploitDbRecords ?? []).filter(record => record.cveId?.toUpperCase() === target);
   return matches.map<ExploitEvidence>(record => ({
     source: 'exploitdb',
     url: record.url ?? null,
@@ -268,8 +255,45 @@ export function lookupExploitDb(cveId: string): ExploitEvidence[] {
 }
 
 /**
- * Placeholder for future OSV integration; currently returns null.
+ * Fetches affected package information from OSV for the provided CVE identifier.
  */
-export async function fetchOsv(): Promise<null> {
-  return null;
+export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | null> {
+  try {
+    const response = await $fetch<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
+      retry: 2,
+      timeout: FETCH_TIMEOUT_MS,
+    });
+
+    const affectedPackages = response.affected?.map<OsvAffectedPackage>(entry => ({
+      ecosystem: entry.package?.ecosystem ?? null,
+      package: entry.package?.name ?? null,
+      ranges: (entry.ranges ?? []).map(range => ({
+        type: range.type ?? null,
+        events: (range.events ?? []).map(event => ({
+          introduced: event.introduced ?? null,
+          fixed: event.fixed ?? null,
+          lastAffected: event.last_affected ?? null,
+          limit: event.limit ?? null,
+        })),
+      })),
+    })) ?? [];
+
+    return affectedPackages.length > 0 ? affectedPackages : null;
+  }
+  catch (error) {
+    if (isHttpErrorLike(error) && error.statusCode === 404) {
+      return null;
+    }
+
+    console.log(
+      JSON.stringify({
+        time: new Date().toISOString(),
+        level: 'error',
+        msg: 'Failed to fetch OSV data',
+        errorType: 'OsvFetchError',
+        context: { cveId, error: error instanceof Error ? error.message : String(error) },
+      }),
+    );
+    return null;
+  }
 }
