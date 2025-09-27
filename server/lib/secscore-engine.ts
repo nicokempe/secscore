@@ -86,8 +86,8 @@ export function buildExplanation(params: ExplanationParams): Array<{ title: stri
     explanation.push({ title: 'CISA KEV', detail: 'Listed by CISA KEV', source: 'cisa-kev' });
   }
 
-  if (params.exploits.length > 0) {
-    const exploit = params.exploits[0];
+  const exploit = params.exploits[0];
+  if (exploit) {
     const dateText = exploit.publishedDate ? ` from ${exploit.publishedDate.split('T')[0]}` : '';
     explanation.push({ title: 'Exploit PoC', detail: `ExploitDB entry${dateText}`, source: 'exploitdb' });
   }

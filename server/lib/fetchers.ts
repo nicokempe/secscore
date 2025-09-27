@@ -17,7 +17,7 @@ interface NvdCvssData {
 
 interface NvdCvssMetric {
   cvssData?: NvdCvssData
-  baseMetrics?: { score?: number, vectorString?: string }
+  baseMetrics?: { baseScore?: number, score?: number, vectorString?: string }
 }
 
 interface NvdCpeMatch {

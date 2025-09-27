@@ -48,6 +48,12 @@
           >
             {{ inputError }}
           </p>
+          <p
+            v-if="apiError"
+            class="text-red-400 text-sm mt-2 text-left"
+          >
+            {{ apiError }}
+          </p>
         </form>
       </div>
 
@@ -100,7 +106,7 @@
 
       <!-- Results Panel -->
       <div
-        v-if="showResults"
+        v-if="showResults && currentData"
         class="glass-card p-8"
       >
         <div class="flex items-center justify-between mb-6">
@@ -386,7 +392,7 @@
                     Exploit PoC Published
                   </p>
                   <p class="text-neutral-400 text-sm">
-                    {{ formatDate(mockData.exploits[0]?.publishedDate ?? null) }}
+                    {{ formatDate(currentData.exploits[0]?.publishedDate ?? null) }}
                   </p>
                 </div>
               </div>
@@ -439,10 +445,11 @@
 
 <script setup lang="ts">
 import { BoltIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, FireIcon, PlusIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
-import type { SecScoreResponse } from '~/types/types';
+import type { SecScoreResponse } from '~/types/secscore.types';
 
 const cveInput = ref('');
 const inputError = ref('');
+const apiError = ref('');
 const showResults = ref(false);
 const isLoading = ref(false);
 const currentLoadingStep = ref(0);
@@ -457,70 +464,50 @@ const loadingSteps = [
   { name: 'compute', label: 'Computing SecScore' },
 ];
 
-const mockData = ref<SecScoreResponse>({
-  cveId: 'CVE-2024-12345',
-  publishedDate: '2024-02-12T00:00:00Z',
-  cvssBase: 7.5,
-  cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N',
-  secscore: 7.9,
-  exploitProb: 0.58,
-  modelCategory: 'php',
-  modelParams: { mu: -0.4286, lambda: 14.56, kappa: 1.128 },
-  epss: { score: 0.62, percentile: 0.62, fetchedAt: '2025-01-05T10:21:00Z' },
-  exploits: [
-    { source: 'exploitdb', url: 'https://www.exploit-db.com/exploits/00000', publishedDate: '2024-03-05T00:00:00Z' },
-  ],
-  kev: false,
-  explanation: [
-    { title: 'Time-aware', detail: 'AL-CDF exploit probability 0.58 (category: php)', source: 'secscore' },
-    { title: 'EPSS', detail: 'EPSS 0.62 (62nd percentile)', source: 'epss' },
-    { title: 'Exploit PoC', detail: 'ExploitDB entry since 2024-03-05', source: 'exploitdb' },
-  ],
-  computedAt: '2025-01-05T10:21:00Z',
-});
+const secscoreData = ref<SecScoreResponse | null>(null);
 
-const currentData = computed(() => mockData.value);
+const currentData = computed(() => secscoreData.value);
 
 const cveRegex = /^CVE-\d{4}-\d{4,}$/;
 
 const analyzeCve = async () => {
   inputError.value = '';
+  apiError.value = '';
 
   if (!cveInput.value.trim()) {
     inputError.value = 'Please enter a CVE ID';
     return;
   }
 
-  if (!cveRegex.test(cveInput.value.trim())) {
+  const normalizedCveId = cveInput.value.trim().toUpperCase();
+
+  if (!cveRegex.test(normalizedCveId)) {
     inputError.value = 'Invalid CVE format. Use format: CVE-YYYY-NNNN';
     return;
   }
 
+  cveInput.value = normalizedCveId;
+
   // Start loading sequence
+  secscoreData.value = null;
   isLoading.value = true;
   currentLoadingStep.value = 0;
   showResults.value = false;
 
-  // Simulate API calls with loading steps
-  for (const [index, step] of loadingSteps.entries()) {
-    currentLoadingStep.value = index;
-    loadingMessage.value = `${step.label}...`;
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
+  try {
+    const data = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveId)}`);
+    secscoreData.value = data;
+    showResults.value = true;
+    currentLoadingStep.value = loadingSteps.length;
+    loadingMessage.value = 'SecScore ready';
   }
-
-  // Update data with user input (prepare for real API integration)
-  mockData.value = {
-    ...mockData.value,
-    cveId: cveInput.value.trim(),
-    computedAt: new Date().toISOString(),
-  };
-
-  // Complete loading
-  isLoading.value = false;
-  showResults.value = true;
-  currentLoadingStep.value = loadingSteps.length;
+  catch (error: unknown) {
+    apiError.value = resolveErrorMessage(error);
+    loadingMessage.value = 'Failed to analyze CVE';
+  }
+  finally {
+    isLoading.value = false;
+  }
 };
 
 const formatDate = (dateString: string | null): string => {
@@ -530,6 +517,37 @@ const formatDate = (dateString: string | null): string => {
     month: 'short',
     day: 'numeric',
   });
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const resolveErrorMessage = (error: unknown): string => {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (isRecord(error)) {
+    if ('data' in error) {
+      const data = (error as { data?: unknown }).data;
+      if (isRecord(data) && typeof data.message === 'string') {
+        return data.message;
+      }
+    }
+
+    if ('statusMessage' in error && typeof (error as { statusMessage?: unknown }).statusMessage === 'string') {
+      return (error as { statusMessage: string }).statusMessage;
+    }
+
+    if ('message' in error && typeof (error as { message?: unknown }).message === 'string') {
+      return (error as { message: string }).message;
+    }
+  }
+
+  return 'Failed to analyze the CVE. Please try again later.';
 };
 
 useSeoMeta({
