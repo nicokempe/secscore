@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-r from-neutral-900 via-cyan-900/40 to-neutral-900 p-4">
+  <div class="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 p-4">
     <div class="max-w-4xl mx-auto pt-12">
       <!-- Hero Section -->
-      <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8 mb-8 text-center">
-        <h1 class="text-4xl font-bold text-gray-100 mb-4">
+      <div class="glass-card p-8 mb-8 text-center">
+        <h1 class="text-4xl font-bold text-neutral-100 mb-4">
           SecScore
         </h1>
-        <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+        <p class="text-neutral-400 mb-8 max-w-2xl mx-auto">
           Time-aware CVE threat scoring using public signals
           <span class="text-cyan-400 text-sm">[Coming soon]</span>
         </p>
@@ -22,15 +22,24 @@
                 v-model="cveInput"
                 type="text"
                 placeholder="CVE-2024-12345"
-                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                :disabled="isLoading"
+                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 :class="{ 'border-red-500': inputError }"
               >
             </div>
             <button
               type="submit"
-              class="px-6 py-3 rounded-md bg-cyan-500/10 text-lg font-semibold text-cyan-500 ring-1 ring-inset ring-cyan-600/10 hover:opacity-80 transition ease-in-out duration-200"
+              :disabled="isLoading"
+              class="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
             >
-              Analyze
+              <span v-if="!isLoading">Analyze</span>
+              <div
+                v-else
+                class="flex items-center gap-2"
+              >
+                <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Analyzing...</span>
+              </div>
             </button>
           </div>
           <p
@@ -42,195 +51,461 @@
         </form>
       </div>
 
+      <!-- Fancy Loading State -->
+      <div
+        v-if="isLoading && !showResults"
+        class="glass-card p-8 mb-8"
+      >
+        <div class="text-center">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-cyan-500/20 mb-4">
+            <div class="w-8 h-8 border-3 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+          </div>
+          <h3 class="text-lg font-semibold text-neutral-100 mb-2">
+            Analyzing CVE
+          </h3>
+          <p class="text-neutral-400 text-sm mb-6">
+            {{ loadingMessage }}
+          </p>
+
+          <!-- Loading Progress Indicators -->
+          <div class="space-y-3 max-w-md mx-auto">
+            <div
+              v-for="(step, index) in loadingSteps"
+              :key="step.name"
+              class="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10"
+              :class="{ 'opacity-50': index > currentLoadingStep }"
+            >
+              <div
+                class="w-6 h-6 rounded-full flex items-center justify-center"
+                :class="index < currentLoadingStep ? 'bg-cyan-500' : index === currentLoadingStep ? 'bg-cyan-500/50' : 'bg-neutral-600'"
+              >
+                <svg
+                  v-if="index < currentLoadingStep"
+                  class="w-3 h-3 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <div
+                  v-else-if="index === currentLoadingStep"
+                  class="w-2 h-2 bg-white rounded-full animate-pulse"
+                />
+                <div
+                  v-else
+                  class="w-2 h-2 bg-neutral-400 rounded-full"
+                />
+              </div>
+              <span class="text-sm text-neutral-300">{{ step.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Results Panel -->
       <div
         v-if="showResults"
-        class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8"
+        class="glass-card p-8"
       >
         <div class="flex items-center justify-between mb-6">
-          <h2 class="text-2xl font-semibold text-gray-100">
+          <h2 class="text-2xl font-semibold text-neutral-100">
             Analysis Results
           </h2>
           <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-400">[Coming soon] Live data & API</span>
+            <span class="text-sm text-neutral-400">[Coming soon] Live data & API</span>
           </div>
         </div>
 
         <!-- Score Badge -->
         <div class="flex justify-center mb-8">
-          <div class="text-center">
-            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 text-white text-3xl font-bold mb-2">
-              {{ mockData.secscore }}
+          <div class="text-center relative group">
+            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 text-white text-3xl font-bold mb-2 cursor-help transition-transform hover:opacity-90">
+              {{ currentData.secscore }}
             </div>
-            <p class="text-gray-400 text-sm">
+            <p class="text-neutral-400 text-sm">
               SecScore
             </p>
+
+            <!-- Tooltip -->
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-2">
+                SecScore Explained
+              </h4>
+              <p class="text-neutral-300 text-sm mb-2">
+                A time-aware threat score combining multiple security signals:
+              </p>
+              <ul class="text-neutral-300 text-xs space-y-1">
+                <li>• CVSS base score ({{ currentData.cvssBase }})</li>
+                <li>• EPSS exploit probability ({{ (currentData.epss?.score || 0).toFixed(2) }})</li>
+                <li>• Time-decay modeling</li>
+                <li>• Public exploit availability</li>
+              </ul>
+            </div>
           </div>
         </div>
 
         <!-- Key Facts -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               CVE ID
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ mockData.cveId }}
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.cveId }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                CVE Identifier
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Common Vulnerabilities and Exposures - a unique identifier for publicly known security vulnerabilities.
+              </p>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               Published
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ formatDate(mockData.publishedDate) }}
+            <p class="text-neutral-100 font-medium">
+              {{ formatDate(currentData.publishedDate) }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                Publication Date
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                When this vulnerability was first publicly disclosed in the National Vulnerability Database (NVD).
+              </p>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               CVSS Base
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ mockData.cvssBase }}
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.cvssBase }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                CVSS Base Score
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Common Vulnerability Scoring System - measures severity from 0-10. Higher scores indicate more severe vulnerabilities.
+              </p>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               EPSS Score
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ formatEpssScore(mockData.epss?.score) }}
+            <p class="text-neutral-100 font-medium">
+              {{ (currentData.epss?.score || 0).toFixed(2) }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                EPSS Score
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Exploit Prediction Scoring System - probability (0-1) that this vulnerability will be exploited in the wild within 30 days.
+              </p>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               KEV Listed
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ mockData.kev ? 'Yes' : 'No' }}
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.kev ? 'Yes' : 'No' }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                KEV Status
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Known Exploited Vulnerabilities - CISA's catalog of vulnerabilities actively exploited by threat actors.
+              </p>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               Exploit PoC
             </p>
-            <p class="text-gray-100 font-medium">
-              {{ mockData.exploits.length > 0 ? 'Yes' : 'No' }}
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.exploits.length > 0 ? 'Yes' : 'No' }}
             </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                Proof of Concept
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Whether public exploit code or demonstrations are available, making the vulnerability easier to exploit.
+              </p>
+            </div>
           </div>
         </div>
 
         <!-- Signals -->
         <div class="mb-8">
-          <h3 class="text-lg font-semibold text-gray-100 mb-4">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
             Data Signals
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div class="p-4 rounded-lg border border-white/10 bg-white/5">
+            <div class="signal-card relative group cursor-help">
               <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-2">
-                <CheckCircleIcon class="w-4 h-4 text-blue-400" />
+                <svg
+                  class="w-4 h-4 text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
               </div>
-              <p class="text-gray-100 font-medium text-sm">
+              <p class="text-neutral-100 font-medium text-sm">
                 NVD
               </p>
-              <p class="text-gray-400 text-xs">
+              <p class="text-neutral-400 text-xs">
                 Active
               </p>
-            </div>
-            <div class="p-4 rounded-lg border border-white/10 bg-white/5">
-              <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
-                <BoltIcon class="w-4 h-4 text-cyan-400" />
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  National Vulnerability Database
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  US government repository of standards-based vulnerability management data. Provides official CVE details and CVSS scores.
+                </p>
               </div>
-              <p class="text-gray-100 font-medium text-sm">
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
+                <svg
+                  class="w-4 h-4 text-cyan-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
                 EPSS
               </p>
-              <p class="text-gray-400 text-xs">
-                {{ formatEpssPercentile(mockData.epss?.percentile) }}
+              <p class="text-neutral-400 text-xs">
+                {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th %ile
               </p>
-            </div>
-            <div class="p-4 rounded-lg border border-white/10 bg-white/5">
-              <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mb-2">
-                <ShieldCheckIcon class="w-4 h-4 text-red-400" />
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Exploit Prediction Scoring System
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Machine learning model that predicts the likelihood of exploitation. This vulnerability ranks in the {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th percentile.
+                </p>
               </div>
-              <p class="text-gray-100 font-medium text-sm">
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mb-2">
+                <svg
+                  class="w-4 h-4 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
                 KEV
               </p>
-              <p class="text-gray-400 text-xs">
-                {{ mockData.kev ? 'Listed' : 'Not listed' }}
+              <p class="text-neutral-400 text-xs">
+                {{ currentData.kev ? 'Listed' : 'Not listed' }}
               </p>
-            </div>
-            <div class="p-4 rounded-lg border border-white/10 bg-white/5">
-              <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mb-2">
-                <FireIcon class="w-4 h-4 text-orange-400" />
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Known Exploited Vulnerabilities
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  CISA's authoritative list of vulnerabilities known to be actively exploited by malicious actors. {{ currentData.kev ? 'This CVE is actively being exploited.' : 'No active exploitation detected yet.' }}
+                </p>
               </div>
-              <p class="text-gray-100 font-medium text-sm">
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mb-2">
+                <svg
+                  class="w-4 h-4 text-orange-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
                 ExploitDB
               </p>
-              <p class="text-gray-400 text-xs">
-                {{ mockData.exploits.length }} PoC{{ mockData.exploits.length !== 1 ? 's' : '' }}
+              <p class="text-neutral-400 text-xs">
+                {{ currentData.exploits.length }} PoC{{ currentData.exploits.length !== 1 ? 's' : '' }}
               </p>
-            </div>
-            <div class="p-4 rounded-lg border border-white/10 bg-white/5 opacity-50">
-              <div class="w-8 h-8 bg-gray-500/20 rounded-lg flex items-center justify-center mb-2">
-                <ClockIcon class="w-4 h-4 text-gray-400" />
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Exploit Database
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Archive of public exploits and proof-of-concepts. {{ currentData.exploits.length > 0 ? `Found ${currentData.exploits.length} public exploit(s).` : 'No public exploits found yet.' }}
+                </p>
               </div>
-              <p class="text-gray-100 font-medium text-sm">
+            </div>
+
+            <div class="signal-card opacity-50 relative group cursor-help">
+              <div class="w-8 h-8 bg-neutral-500/20 rounded-lg flex items-center justify-center mb-2">
+                <svg
+                  class="w-4 h-4 text-neutral-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
                 OSV
               </p>
-              <p class="text-gray-400 text-xs">
+              <p class="text-neutral-400 text-xs">
                 Coming soon
               </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Open Source Vulnerabilities
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Google's database of vulnerabilities affecting open source projects. Integration coming soon to provide ecosystem-specific context.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Timeline -->
         <div class="mb-8">
-          <h3 class="text-lg font-semibold text-gray-100 mb-4">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
             Timeline
           </h3>
           <div class="relative">
-            <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-600" />
+            <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-neutral-600" />
             <div class="space-y-6">
               <div class="flex items-center">
                 <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center relative z-10">
-                  <CalendarDaysIcon class="w-4 h-4 text-white" />
+                  <svg
+                    class="w-4 h-4 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
                 </div>
                 <div class="ml-4">
-                  <p class="text-gray-100 font-medium">
+                  <p class="text-neutral-100 font-medium">
                     CVE Published
                   </p>
-                  <p class="text-gray-400 text-sm">
-                    {{ formatDate(mockData.publishedDate) }}
+                  <p class="text-neutral-400 text-sm">
+                    {{ formatDate(currentData.publishedDate) }}
                   </p>
                 </div>
               </div>
               <div
-                v-if="mockData.exploits.length > 0"
+                v-if="currentData.exploits.length > 0"
                 class="flex items-center"
               >
                 <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center relative z-10">
-                  <BeakerIcon class="w-4 h-4 text-white" />
+                  <svg
+                    class="w-4 h-4 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                    />
+                  </svg>
                 </div>
                 <div class="ml-4">
-                  <p class="text-gray-100 font-medium">
+                  <p class="text-neutral-100 font-medium">
                     Exploit PoC Published
                   </p>
-                  <p class="text-gray-400 text-sm">
+                  <p class="text-neutral-400 text-sm">
                     {{ formatDate(mockData.exploits[0]?.publishedDate ?? null) }}
                   </p>
                 </div>
               </div>
               <div class="flex items-center">
                 <div class="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center relative z-10">
-                  <ChartBarIcon class="w-4 h-4 text-white" />
+                  <svg
+                    class="w-4 h-4 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
                 </div>
                 <div class="ml-4">
-                  <p class="text-gray-100 font-medium">
+                  <p class="text-neutral-100 font-medium">
                     Analysis Computed
                   </p>
-                  <p class="text-gray-400 text-sm">
-                    {{ formatDate(mockData.computedAt) }}
+                  <p class="text-neutral-400 text-sm">
+                    {{ formatDate(currentData.computedAt) }}
                   </p>
                 </div>
               </div>
@@ -240,25 +515,25 @@
 
         <!-- Explanation -->
         <div>
-          <h3 class="text-lg font-semibold text-gray-100 mb-4">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
             Scoring Explanation
           </h3>
           <div class="space-y-3">
             <div
-              v-for="item in mockData.explanation"
+              v-for="item in currentData.explanation"
               :key="item.title"
-              class="p-4 rounded-lg border border-white/10 bg-white/5"
+              class="explanation-card"
             >
               <div class="flex items-start justify-between">
                 <div>
-                  <h4 class="text-gray-100 font-medium">
+                  <h4 class="text-neutral-100 font-medium">
                     {{ item.title }}
                   </h4>
-                  <p class="text-gray-400 text-sm mt-1">
+                  <p class="text-neutral-400 text-sm mt-1">
                     {{ item.detail }}
                   </p>
                 </div>
-                <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{{ item.source }}</span>
+                <span class="text-xs text-neutral-500 bg-neutral-800 px-2 py-1 rounded">{{ item.source }}</span>
               </div>
             </div>
           </div>
@@ -270,23 +545,24 @@
 
 <script setup lang="ts">
 import type { SecScoreResponse } from '~/types/types';
-import {
-  BeakerIcon,
-  BoltIcon,
-  CalendarDaysIcon,
-  ChartBarIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  FireIcon,
-  ShieldCheckIcon,
-} from '@heroicons/vue/24/solid';
 
 const cveInput = ref('');
 const inputError = ref('');
 const showResults = ref(false);
+const isLoading = ref(false);
+const currentLoadingStep = ref(0);
+const loadingMessage = ref('');
 
-// Mock data
-const mockData: SecScoreResponse = {
+const loadingSteps = [
+  { name: 'validate', label: 'Validating CVE format' },
+  { name: 'fetch_nvd', label: 'Fetching NVD data' },
+  { name: 'fetch_epss', label: 'Getting EPSS scores' },
+  { name: 'check_kev', label: 'Checking KEV status' },
+  { name: 'scan_exploits', label: 'Scanning for exploits' },
+  { name: 'compute', label: 'Computing SecScore' },
+];
+
+const mockData = ref<SecScoreResponse>({
   cveId: 'CVE-2024-12345',
   publishedDate: '2024-02-12T00:00:00Z',
   cvssBase: 7.5,
@@ -306,13 +582,13 @@ const mockData: SecScoreResponse = {
     { title: 'Exploit PoC', detail: 'ExploitDB entry since 2024-03-05', source: 'exploitdb' },
   ],
   computedAt: '2025-01-05T10:21:00Z',
-};
+});
 
-// CVE validation regex
+const currentData = computed(() => mockData.value);
+
 const cveRegex = /^CVE-\d{4}-\d{4,}$/;
 
-// Methods
-const analyzeCve = () => {
+const analyzeCve = async () => {
   inputError.value = '';
 
   if (!cveInput.value.trim()) {
@@ -325,9 +601,31 @@ const analyzeCve = () => {
     return;
   }
 
-  // Update mock data with user input
-  mockData.cveId = cveInput.value.trim();
+  // Start loading sequence
+  isLoading.value = true;
+  currentLoadingStep.value = 0;
+  showResults.value = false;
+
+  // Simulate API calls with loading steps
+  for (let i = 0; i < loadingSteps.length; i++) {
+    currentLoadingStep.value = i;
+    loadingMessage.value = loadingSteps[i].label + '...';
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
+  }
+
+  // Update data with user input (prepare for real API integration)
+  mockData.value = {
+    ...mockData.value,
+    cveId: cveInput.value.trim(),
+    computedAt: new Date().toISOString(),
+  };
+
+  // Complete loading
+  isLoading.value = false;
   showResults.value = true;
+  currentLoadingStep.value = loadingSteps.length;
 };
 
 const formatDate = (dateString: string | null): string => {
@@ -337,22 +635,6 @@ const formatDate = (dateString: string | null): string => {
     month: 'short',
     day: 'numeric',
   });
-};
-
-const formatEpssScore = (score: number | null | undefined): string => {
-  if (typeof score !== 'number' || Number.isNaN(score)) {
-    return 'N/A';
-  }
-
-  return score.toFixed(2);
-};
-
-const formatEpssPercentile = (percentile: number | null | undefined): string => {
-  if (typeof percentile !== 'number' || Number.isNaN(percentile)) {
-    return 'N/A';
-  }
-
-  return `${Math.round(percentile * 100)}th %ile`;
 };
 
 useSeoMeta({
@@ -369,3 +651,49 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 });
 </script>
+
+<style scoped>
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.signal-card {
+  @apply p-4 rounded-lg border border-white/10 bg-white/5 transition-all duration-200 hover:bg-white/10 hover:border-white/20;
+}
+
+.explanation-card {
+  @apply p-4 rounded-lg border border-white/10 bg-white/5;
+}
+
+/* Added tooltip styles for hover explanations */
+.tooltip {
+  @apply absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl z-50 w-64 opacity-0 pointer-events-none transition-all duration-200;
+}
+
+.group:hover .tooltip {
+  @apply opacity-100 pointer-events-auto;
+}
+
+.tooltip::after {
+  content: '';
+  @apply absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-neutral-900;
+}
+
+/* Enhanced loading animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.border-3 {
+  border-width: 3px;
+}
+</style>
