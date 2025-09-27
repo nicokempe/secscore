@@ -30,7 +30,7 @@
             <button
               type="submit"
               :disabled="isLoading"
-              class="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+              class="px-6 py-3 bg-cyan-600 enabled:hover:bg-cyan-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
             >
               <span v-if="!isLoading">Analyze</span>
               <div
