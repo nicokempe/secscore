@@ -79,20 +79,10 @@
                 class="w-6 h-6 rounded-full flex items-center justify-center"
                 :class="index < currentLoadingStep ? 'bg-cyan-500' : index === currentLoadingStep ? 'bg-cyan-500/50' : 'bg-neutral-600'"
               >
-                <svg
+                <CheckIcon
                   v-if="index < currentLoadingStep"
                   class="w-3 h-3 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="3"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                />
                 <div
                   v-else-if="index === currentLoadingStep"
                   class="w-2 h-2 bg-white rounded-full animate-pulse"
@@ -263,19 +253,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div class="signal-card relative group cursor-help">
               <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-2">
-                <svg
-                  class="w-4 h-4 text-blue-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                <ShieldCheckIcon class="w-4 h-4 text-blue-400" />
               </div>
               <p class="text-neutral-100 font-medium text-sm">
                 NVD
@@ -295,19 +273,7 @@
 
             <div class="signal-card relative group cursor-help">
               <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
-                <svg
-                  class="w-4 h-4 text-cyan-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
+                <BoltIcon class="w-4 h-4 text-cyan-400" />
               </div>
               <p class="text-neutral-100 font-medium text-sm">
                 EPSS
@@ -327,19 +293,7 @@
 
             <div class="signal-card relative group cursor-help">
               <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mb-2">
-                <svg
-                  class="w-4 h-4 text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
+                <ExclamationTriangleIcon class="w-4 h-4 text-red-400" />
               </div>
               <p class="text-neutral-100 font-medium text-sm">
                 KEV
@@ -359,19 +313,7 @@
 
             <div class="signal-card relative group cursor-help">
               <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mb-2">
-                <svg
-                  class="w-4 h-4 text-orange-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                  />
-                </svg>
+                <FireIcon class="w-4 h-4 text-orange-400" />
               </div>
               <p class="text-neutral-100 font-medium text-sm">
                 ExploitDB
@@ -391,19 +333,7 @@
 
             <div class="signal-card opacity-50 relative group cursor-help">
               <div class="w-8 h-8 bg-neutral-500/20 rounded-lg flex items-center justify-center mb-2">
-                <svg
-                  class="w-4 h-4 text-neutral-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                <ClockIcon class="w-4 h-4 text-neutral-400" />
               </div>
               <p class="text-neutral-100 font-medium text-sm">
                 OSV
@@ -433,19 +363,7 @@
             <div class="space-y-6">
               <div class="flex items-center">
                 <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center relative z-10">
-                  <svg
-                    class="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
+                  <PlusIcon class="w-4 h-4 text-white" />
                 </div>
                 <div class="ml-4">
                   <p class="text-neutral-100 font-medium">
@@ -461,19 +379,7 @@
                 class="flex items-center"
               >
                 <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center relative z-10">
-                  <svg
-                    class="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                    />
-                  </svg>
+                  <FireIcon class="w-4 h-4 text-white" />
                 </div>
                 <div class="ml-4">
                   <p class="text-neutral-100 font-medium">
@@ -486,19 +392,7 @@
               </div>
               <div class="flex items-center">
                 <div class="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center relative z-10">
-                  <svg
-                    class="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <ClockIcon class="w-4 h-4 text-white" />
                 </div>
                 <div class="ml-4">
                   <p class="text-neutral-100 font-medium">
@@ -544,6 +438,7 @@
 </template>
 
 <script setup lang="ts">
+import { BoltIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, FireIcon, PlusIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
 import type { SecScoreResponse } from '~/types/types';
 
 const cveInput = ref('');
@@ -607,9 +502,9 @@ const analyzeCve = async () => {
   showResults.value = false;
 
   // Simulate API calls with loading steps
-  for (let i = 0; i < loadingSteps.length; i++) {
-    currentLoadingStep.value = i;
-    loadingMessage.value = loadingSteps[i].label + '...';
+  for (const [index, step] of loadingSteps.entries()) {
+    currentLoadingStep.value = index;
+    loadingMessage.value = `${step.label}...`;
 
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
