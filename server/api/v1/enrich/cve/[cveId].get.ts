@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const epss = await fetchEpss(cveId);
     await loadKevIndex();
     const kev = isInKev(cveId);
-    const exploits = await lookupExploitDb(cveId);
+    const exploits = lookupExploitDb(cveId);
 
     const category = inferCategory(metadata.cpe);
     const modelParams = await readModelParams(category);
