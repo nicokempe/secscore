@@ -1,48 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
-
-export interface KevCompactEntry {
-  cveId: string
-  dateAdded?: string
-  vendorProject?: string
-  product?: string
-}
-
-export interface KevCompactFile {
-  etag?: string
-  lastModified?: string
-  updatedAt: string
-  items: KevCompactEntry[]
-}
-
-export interface KevMetaValue {
-  dateAdded?: string
-  vendorProject?: string
-  product?: string
-}
-
-export interface KevRuntimeMetadata {
-  etag?: string
-  lastModified?: string
-  updatedAt?: string
-}
+import type {
+  KevCompactCandidate,
+  KevCompactEntry,
+  KevCompactFile,
+  KevFullFile,
+  KevMetaValue,
+  KevRuntimeMetadata,
+} from '~/types/kev.types';
 
 const kevSet: Set<string> = new Set<string>();
 const kevMeta: Map<string, KevMetaValue> = new Map<string, KevMetaValue>();
 let currentEtag: string | undefined;
 let currentLastModified: string | undefined;
 let currentUpdatedAt: string | undefined;
-
-interface KevFullFile {
-  vulnerabilities?: unknown
-}
-
-interface KevCompactCandidate {
-  etag?: unknown
-  lastModified?: unknown
-  updatedAt?: unknown
-  items?: unknown
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

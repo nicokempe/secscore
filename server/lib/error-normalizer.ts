@@ -1,10 +1,5 @@
 import { H3Error } from 'h3';
-
-interface NormalizedError {
-  statusCode: number
-  message: string
-  details?: unknown
-}
+import type { NormalizedError } from '~/types/error.types';
 
 const DEFAULT_ERROR_MESSAGE = 'Internal Server Error';
 

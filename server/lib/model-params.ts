@@ -1,10 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AL_PARAMS_FILE } from '~~/server/lib/constants';
-
-interface ModelParameters {
-  [category: string]: { mu: number, lambda: number, kappa: number }
-}
+import type { ModelParameters } from '~/types/model-params.types';
 
 const FALLBACK_PARAMS: ModelParameters = {
   default: { mu: -0.2857, lambda: 21.79, kappa: 0.9075 },

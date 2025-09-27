@@ -1,20 +1,8 @@
 import { E_MAX_V31, E_MIN_V31, EPSS_BLEND_WEIGHT, EXPLOITPROB_WEIGHT, KEV_MIN_FLOOR, POC_BONUS_MAX } from '~~/server/lib/constants';
-import type { EpssSignal, ExploitEvidence } from '~/types/secscore.types';
+import type { EpssSignal } from '~/types/secscore.types';
+import type { ExplanationParams } from '~/types/secscore-engine.types';
 
 const BASE_DEFAULT = 0;
-
-/** Parameters required to compose an explanation object. */
-interface ExplanationParams {
-  kev: boolean
-  exploits: ExploitEvidence[]
-  epss: EpssSignal | null
-  exploitProb: number
-  modelCategory: string
-  modelParams: { mu: number, lambda: number, kappa: number }
-  tWeeks: number
-  cvssBase: number | null
-  secscore: number
-}
 
 /**
  * Infers a model category from CPE strings to select the appropriate AL parameter set.

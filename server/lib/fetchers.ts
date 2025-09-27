@@ -3,92 +3,16 @@ import { resolve } from 'node:path';
 import { $fetch } from 'ofetch';
 import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
 import type { CveMetadata, EpssSignal, ExploitEvidence, OsvAffectedPackage } from '~/types/secscore.types';
-
-interface NvdDescription {
-  lang?: string
-  value?: string
-}
-
-interface NvdCvssData {
-  baseScore?: number
-  vectorString?: string
-  score?: number
-}
-
-interface NvdCvssMetric {
-  cvssData?: NvdCvssData
-  baseMetrics?: { baseScore?: number, score?: number, vectorString?: string }
-}
-
-interface NvdCpeMatch {
-  criteria?: string
-}
-
-interface NvdConfigurationNode {
-  cpeMatch?: NvdCpeMatch[]
-  children?: NvdConfigurationNode[]
-}
-
-interface NvdCve {
-  id?: string
-  published?: string
-  descriptions?: NvdDescription[]
-  metrics?: {
-    cvssMetricV31?: NvdCvssMetric[]
-    cvssMetricV30?: NvdCvssMetric[]
-    cvssMetricV3?: NvdCvssMetric[]
-    cvssMetricV40?: NvdCvssMetric[]
-    cvssMetricV2?: NvdCvssMetric[]
-  }
-  configurations?: { nodes?: NvdConfigurationNode[] }
-}
-
-interface NvdVulnerability {
-  cve?: NvdCve
-}
-
-interface NvdResponse {
-  vulnerabilities?: NvdVulnerability[]
-}
-
-interface ExploitDbRecord {
-  url?: string
-  publishedDate?: string
-  cveId?: string
-}
+import type {
+  ExploitDbRecord,
+  HttpErrorLike,
+  NvdConfigurationNode,
+  NvdCve,
+  NvdResponse,
+  OsvResponse,
+} from '~/types/fetchers.types';
 
 let exploitDbRecords: ExploitDbRecord[] | null = null;
-
-interface OsvEvent {
-  introduced?: string
-  fixed?: string
-  last_affected?: string
-  limit?: string
-}
-
-interface OsvRange {
-  type?: string
-  events?: OsvEvent[]
-}
-
-interface OsvPackage {
-  ecosystem?: string
-  name?: string
-}
-
-interface OsvAffected {
-  package?: OsvPackage
-  ranges?: OsvRange[]
-}
-
-interface OsvResponse {
-  affected?: OsvAffected[]
-}
-
-interface HttpErrorLike {
-  statusCode: number
-  message: string
-}
 
 function isHttpErrorLike(value: unknown): value is HttpErrorLike {
   return (

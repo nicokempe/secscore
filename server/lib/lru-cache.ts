@@ -1,9 +1,5 @@
 import { ENRICH_CACHE_MAX_ENTRIES } from '~~/server/lib/constants';
-
-interface CacheEntry<T> {
-  value: T
-  expiresAt: number
-}
+import type { CacheEntry } from '~/types/cache.types';
 
 const cacheStore = new Map<string, CacheEntry<unknown>>();
 

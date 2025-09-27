@@ -16,23 +16,8 @@ import {
   hydrateRuntime,
   loadCompactFromDisk,
   saveCompactToDisk,
-  type KevMetaValue,
-  type KevCompactFile,
-  type KevRuntimeMetadata,
 } from '~~/server/lib/kev-index';
-
-interface KevStatus {
-  count: number
-  updatedAt?: string
-  etag?: string
-  lastModified?: string
-}
-
-interface KevRefreshResult {
-  changed: boolean
-  count: number
-  updatedAt: string
-}
+import type { KevCompactFile, KevMetaValue, KevRefreshResult, KevRuntimeMetadata, KevStatus } from '~/types/kev.types';
 
 const cacheFilePath: string = resolve(process.cwd(), KEV_COMPACT_PATH);
 const fallbackFilePath: string = resolve(process.cwd(), KEV_FALLBACK_PATH);
