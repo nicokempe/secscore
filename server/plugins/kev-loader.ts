@@ -34,8 +34,23 @@ interface KevRefreshResult {
   updatedAt: string
 }
 
-const cacheFilePath = resolve(process.cwd(), KEV_COMPACT_PATH);
-const fallbackFilePath = resolve(process.cwd(), KEV_FALLBACK_PATH);
+const cacheFilePath: string = resolve(process.cwd(), KEV_COMPACT_PATH);
+const fallbackFilePath: string = resolve(process.cwd(), KEV_FALLBACK_PATH);
+let bootstrapPromise: Promise<void> | null = null;
+let initialRefreshTriggered: boolean = false;
+
+async function bootstrapKevRuntime(): Promise<void> {
+  await ensureCacheDirectory();
+  await hydrateFromLocalSources();
+}
+
+function scheduleInitialRefresh(): void {
+  if (initialRefreshTriggered) {
+    return;
+  }
+  initialRefreshTriggered = true;
+  void refreshKevFromRemote();
+}
 
 function log(level: 'info' | 'warn', msg: string, context?: Record<string, unknown>): void {
   const payload = {
@@ -48,7 +63,14 @@ function log(level: 'info' | 'warn', msg: string, context?: Record<string, unkno
 }
 
 async function ensureCacheDirectory(): Promise<void> {
-  await mkdir(dirname(cacheFilePath), { recursive: true });
+  try {
+    await mkdir(dirname(cacheFilePath), { recursive: true });
+  }
+  catch (error) {
+    log('warn', 'kev.cache_dir_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function hydrateFromLocalSources(): Promise<void> {
@@ -96,7 +118,7 @@ function buildRequestHeaders(): Headers {
     'User-Agent': USER_AGENT,
     'Accept': 'application/json',
   });
-  const metadata = getRuntimeMetadata();
+  const metadata: KevRuntimeMetadata = getRuntimeMetadata();
   if (metadata.etag) {
     headers.set('If-None-Match', metadata.etag);
   }
@@ -118,11 +140,11 @@ function responseHeadersToCompact(base: KevCompactFile, response: Response): Kev
 
 async function fetchWithTimeout(input: string, headers: Headers): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => {
+  const timeout = setTimeout((): void => {
     controller.abort();
   }, KEV_FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(input, {
+    const response: Response = await fetch(input, {
       headers,
       signal: controller.signal,
     });
@@ -151,25 +173,35 @@ export function getKevStatus(): KevStatus {
   };
 }
 
+export async function ensureKevInitialized(): Promise<void> {
+  if (!bootstrapPromise) {
+    bootstrapPromise = bootstrapKevRuntime().catch((error): void => {
+      bootstrapPromise = null;
+      throw error;
+    });
+  }
+  await bootstrapPromise;
+}
+
 export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
   try {
-    const headers = buildRequestHeaders();
-    const response = await fetchWithTimeout(KEV_FEED_URL, headers);
+    const headers: Headers = buildRequestHeaders();
+    const response: Response = await fetchWithTimeout(KEV_FEED_URL, headers);
     if (response.status === 304) {
-      const metadata = getRuntimeMetadata();
+      const metadata: KevRuntimeMetadata = getRuntimeMetadata();
       log('info', 'kev.refresh', {
         changed: false,
         status: response.status,
         count: getKevSet().size,
       });
-      const updatedAt = metadata.updatedAt ?? new Date().toISOString();
+      const updatedAt: string = metadata.updatedAt ?? new Date().toISOString();
       return { changed: false, count: getKevSet().size, updatedAt };
     }
     if (!response.ok) {
       throw new Error(`Unexpected response: ${response.status}`);
     }
     const payload = (await response.json()) as unknown;
-    const compact = responseHeadersToCompact(buildCompactFromFull(payload), response);
+    const compact: KevCompactFile = responseHeadersToCompact(buildCompactFromFull(payload), response);
     const next: KevCompactFile = {
       ...compact,
       updatedAt: new Date().toISOString(),
@@ -194,8 +226,16 @@ export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
   }
 }
 
-export default defineNitroPlugin(async () => {
-  await ensureCacheDirectory();
-  await hydrateFromLocalSources();
-  void refreshKevFromRemote();
+export default defineNitroPlugin((nitroApp): void => {
+  nitroApp.hooks.hook('request', async (): Promise<void> => {
+    try {
+      await ensureKevInitialized();
+      scheduleInitialRefresh();
+    }
+    catch (error) {
+      log('warn', 'kev.bootstrap_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 });
