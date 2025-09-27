@@ -51,29 +51,13 @@ interface NvdResponse {
   vulnerabilities?: NvdVulnerability[]
 }
 
-interface KevEntry {
-  cveID?: string
-}
-
-interface KevFile {
-  vulnerabilities?: KevEntry[]
-  catalogVersion?: string
-  dateReleased?: string
-}
-
 interface ExploitDbRecord {
   url?: string
   publishedDate?: string
   cveId?: string
 }
 
-let kevLoaded = false;
-const kevSet = new Set<string>();
 let exploitDbRecords: ExploitDbRecord[] | null = null;
-let kevMetadata: { catalogVersion: string | null, dateReleased: string | null } = {
-  catalogVersion: null,
-  dateReleased: null,
-};
 
 interface OsvEvent {
   introduced?: string
@@ -239,52 +223,6 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
   catch {
     return null;
   }
-}
-
-/**
- * Loads the local CISA KEV JSON file (if present) and populates an in-memory lookup set.
- */
-export async function loadKevIndex(): Promise<void> {
-  if (kevLoaded) {
-    return;
-  }
-
-  try {
-    const { readFile } = await import('node:fs/promises');
-    const kevPath = resolve(process.cwd(), 'server/data/kev.json');
-    const file = await readFile(kevPath, 'utf8');
-    const parsed = JSON.parse(file) as KevFile;
-    for (const entry of parsed.vulnerabilities ?? []) {
-      if (entry.cveID) {
-        kevSet.add(entry.cveID);
-      }
-    }
-    kevMetadata = {
-      catalogVersion: typeof parsed.catalogVersion === 'string' ? parsed.catalogVersion : null,
-      dateReleased: typeof parsed.dateReleased === 'string' ? parsed.dateReleased : null,
-    };
-  }
-  catch {
-    // Intentionally ignore missing or malformed KEV files.
-    kevMetadata = { catalogVersion: null, dateReleased: null };
-  }
-  finally {
-    kevLoaded = true;
-  }
-}
-
-/**
- * Returns whether a CVE is present in the loaded KEV index.
- */
-export function isInKev(cveId: string): boolean {
-  return kevSet.has(cveId);
-}
-
-/**
- * Exposes KEV dataset metadata (catalog version + release timestamp) after loading.
- */
-export function getKevMetadata(): { catalogVersion: string | null, dateReleased: string | null } {
-  return kevMetadata;
 }
 
 function loadExploitDbIndex(): void {
