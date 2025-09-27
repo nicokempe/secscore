@@ -54,6 +54,7 @@ export default defineNuxtConfig({
     preset: 'cloudflare_module',
     experimental: {
       openAPI: true,
+      tasks: true,
     },
   },
   eslint: {
