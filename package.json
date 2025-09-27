@@ -15,7 +15,9 @@
     "postinstall": "nuxt prepare",
     "ref": "rm -rf node_modules/ pnpm-lock.yaml .nuxt/ .output/ && pnpm install && pnpm lint:fix && nuxi typecheck && pnpm run dev",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "changelog": "changelogen",
+    "release": "changelogen --release --patch --push && changelogen gh release latest"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
@@ -36,7 +38,8 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.44.1",
-    "vue-eslint-parser": "^10.2.0"
+    "vue-eslint-parser": "^10.2.0",
+    "changelogen": "^0.6.2"
   },
   "packageManager": "pnpm@10.15.1+sha512.34e538c329b5553014ca8e8f4535997f96180a1d0f614339357449935350d924e22f8614682191264ec33d1462ac21561aff97f6bb18065351c162c7e8f6de67"
 }
