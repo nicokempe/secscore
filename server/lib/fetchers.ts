@@ -66,6 +66,22 @@ let kevLoaded = false;
 const kevSet = new Set<string>();
 let exploitDbRecords: ExploitDbRecord[] | null = null;
 
+interface HttpErrorLike {
+  statusCode: number
+  message: string
+}
+
+function isHttpErrorLike(value: unknown): value is HttpErrorLike {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && 'statusCode' in value
+    && 'message' in value
+    && typeof (value as { statusCode: unknown }).statusCode === 'number'
+    && typeof (value as { message: unknown }).message === 'string'
+  );
+}
+
 /**
  * Fetches CVE metadata from the NVD v2 API and normalizes it into the service shape.
  */
@@ -88,7 +104,11 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
 
     const vulnerability = response.vulnerabilities?.find(item => item.cve?.id === cveId) ?? response.vulnerabilities?.[0];
     if (!vulnerability?.cve) {
-      return defaultMetadata;
+      const notFoundError: HttpErrorLike = {
+        statusCode: 404,
+        message: `CVE ${cveId} not found in NVD`,
+      };
+      throw notFoundError;
     }
 
     const cve: NvdCve = vulnerability.cve;
@@ -134,6 +154,10 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
     };
   }
   catch (error) {
+    if (isHttpErrorLike(error) && error.statusCode === 404) {
+      throw error;
+    }
+
     console.log(
       JSON.stringify({
         time: new Date().toISOString(),
