@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { $fetch } from 'ofetch';
 import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
 import type { CveMetadata, EpssSignal, ExploitEvidence } from '~/types/secscore.types';
@@ -62,9 +60,18 @@ interface ExploitDbRecord {
   cve?: string
 }
 
+type GlobImport = <T>(...args: [string, { eager: true }]) => Record<string, { default: T }>;
+const globImport = (import.meta as unknown as { glob: GlobImport }).glob;
+const DATA_ASSETS = globImport<unknown>('../data/*.json', { eager: true });
+
 let kevLoaded = false;
 const kevSet = new Set<string>();
 let exploitDbRecords: ExploitDbRecord[] | null = null;
+
+function readDataAsset<T>(path: string): T | null {
+  const module = DATA_ASSETS[path] as { default: T } | undefined;
+  return module?.default ?? null;
+}
 
 /**
  * Fetches CVE metadata from the NVD v2 API and normalizes it into the service shape.
@@ -189,11 +196,8 @@ export async function loadKevIndex(): Promise<void> {
   }
 
   try {
-    const { readFile } = await import('node:fs/promises');
-    const kevPath = resolve(process.cwd(), 'server/data/kev.json');
-    const file = await readFile(kevPath, 'utf8');
-    const parsed = JSON.parse(file) as { vulnerabilities?: KevEntry[] };
-    for (const entry of parsed.vulnerabilities ?? []) {
+    const parsed = readDataAsset<{ vulnerabilities?: KevEntry[] }>('../data/kev.json');
+    for (const entry of parsed?.vulnerabilities ?? []) {
       if (entry.cveID) {
         kevSet.add(entry.cveID);
       }
@@ -214,15 +218,13 @@ export function isInKev(cveId: string): boolean {
   return kevSet.has(cveId);
 }
 
-function loadExploitDbIndex(): void {
+async function loadExploitDbIndex(): Promise<void> {
   if (exploitDbRecords) {
     return;
   }
   try {
-    const filePath = resolve(process.cwd(), 'server/data/exploitdb-index.json');
-    const fileContents = readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(fileContents) as ExploitDbRecord[];
-    exploitDbRecords = parsed.filter(record => record.source === 'exploitdb');
+    const parsed = readDataAsset<ExploitDbRecord[]>('../data/exploitdb-index.json');
+    exploitDbRecords = (parsed ?? []).filter(record => record.source === 'exploitdb');
   }
   catch {
     exploitDbRecords = [];
@@ -232,8 +234,8 @@ function loadExploitDbIndex(): void {
 /**
  * Searches the bundled ExploitDB index for entries referencing the provided CVE identifier.
  */
-export function lookupExploitDb(cveId: string): ExploitEvidence[] {
-  loadExploitDbIndex();
+export async function lookupExploitDb(cveId: string): Promise<ExploitEvidence[]> {
+  await loadExploitDbIndex();
   const target = cveId.toUpperCase();
   const matches = (exploitDbRecords ?? []).filter(record => record.cve?.toUpperCase() === target);
   return matches.map<ExploitEvidence>(record => ({

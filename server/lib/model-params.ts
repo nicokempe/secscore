@@ -1,7 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { AL_PARAMS_FILE } from '~~/server/lib/constants';
-
 interface ModelParameters {
   [category: string]: { mu: number, lambda: number, kappa: number }
 }
@@ -21,9 +17,8 @@ let paramsCache: ModelParameters | null = null;
 export async function readModelParams(category: string): Promise<{ mu: number, lambda: number, kappa: number }> {
   if (!paramsCache) {
     try {
-      const filePath = resolve(process.cwd(), AL_PARAMS_FILE);
-      const contents = await readFile(filePath, 'utf8');
-      paramsCache = JSON.parse(contents) as ModelParameters;
+      const module = await import('../../model-params/al-params.json');
+      paramsCache = module.default as ModelParameters;
     }
     catch {
       paramsCache = FALLBACK_PARAMS;
