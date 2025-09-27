@@ -7,7 +7,7 @@ function parseIntervalHours(): number {
   if (!override) {
     return KEV_REFRESH_INTERVAL_HOURS;
   }
-  const parsed = Number.parseFloat(override);
+  const parsed: number = Number.parseFloat(override);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return KEV_REFRESH_INTERVAL_HOURS;
   }
@@ -18,18 +18,35 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
   if (process.env.DISABLE_KEV_SCHEDULER === '1') {
     return;
   }
-  const hours = parseIntervalHours();
+  const hours: number = parseIntervalHours();
   if (!Number.isFinite(hours) || hours <= 0) {
     return;
   }
-  const intervalMs = hours * 60 * 60 * 1000;
-  const timer = setInterval(() => {
-    void runTask('kev:refresh');
-  }, intervalMs);
-  if (typeof timer === 'object' && timer !== null && 'unref' in timer && typeof (timer as { unref?: () => void }).unref === 'function') {
-    (timer as { unref?: () => void }).unref?.();
-  }
-  nitroApp.hooks.hook('close', () => {
-    clearInterval(timer);
+  const intervalMs: number = hours * 60 * 60 * 1000;
+
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  nitroApp.hooks.hook('request', (): void => {
+    if (timer) {
+      return;
+    }
+    timer = setInterval((): void => {
+      void runTask('kev:refresh');
+    }, intervalMs);
+    if (
+      typeof timer === 'object'
+      && timer !== null
+      && 'unref' in timer
+      && typeof (timer as { unref?: () => void }).unref === 'function'
+    ) {
+      (timer as { unref?: () => void }).unref?.();
+    }
+  });
+
+  nitroApp.hooks.hook('close', (): void => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
   });
 });
