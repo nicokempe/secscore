@@ -217,7 +217,7 @@
                     Exploit PoC Published
                   </p>
                   <p class="text-gray-400 text-sm">
-                    {{ formatDate(mockData.exploits[0].publishedDate) }}
+                    {{ formatDate(mockData.exploits[0]?.publishedDate ?? null) }}
                   </p>
                 </div>
               </div>
