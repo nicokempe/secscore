@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
-import { CACHE_TTL_MS, DEFAULT_RATE_LIMIT_PER_HOUR } from '~~/server//lib/constants';
+import { CACHE_TTL_MS, DEFAULT_RATE_LIMIT_PER_HOUR } from '~~/server/lib/constants';
 import { fetchNvdMetadata } from '~~/server/lib/fetchers';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
 import { applyPerIpRateLimit } from '~~/server/lib/rate-limit';
