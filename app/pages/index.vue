@@ -4,7 +4,7 @@
       <!-- Hero Section -->
       <div class="glass-card p-8 mb-8 text-center">
         <h1 class="text-4xl font-bold text-neutral-100 mb-4">
-          SecScore
+          Security Score
         </h1>
         <p class="text-neutral-400 mb-8 max-w-2xl mx-auto">
           Time-aware CVE threat scoring using public signals
