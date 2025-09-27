@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/test-utils', '@nuxtjs/turnstile', '@nuxtjs/tailwindcss'],
+  modules: ['@nuxt/eslint', '@nuxt/test-utils', '@nuxtjs/turnstile', '@nuxtjs/tailwindcss', 'nuxt-security'],
   devtools: { enabled: true },
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
