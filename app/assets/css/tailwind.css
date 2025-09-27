@@ -4,7 +4,7 @@
 
 @layer base {
   html {
-    font-family: Montserrat, sans-serif;
+    font-family: 'IBM Plex Sans', Montserrat, sans-serif;
     @apply bg-neutral-900
   }
 }
