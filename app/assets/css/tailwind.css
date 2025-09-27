@@ -10,9 +10,9 @@
 }
 
 ::selection {
-  @apply bg-emerald-950 text-white;
+  @apply bg-cyan-950 text-white;
 }
 
 ::-moz-selection {
-  @apply bg-emerald-950 text-white;
+  @apply bg-cyan-950 text-white;
 }

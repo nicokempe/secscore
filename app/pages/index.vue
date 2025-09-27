@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-r from-neutral-900 via-emerald-900/40 to-neutral-900 p-4">
+  <div class="min-h-screen bg-gradient-to-r from-neutral-900 via-cyan-900/40 to-neutral-900 p-4">
     <div class="max-w-4xl mx-auto pt-12">
       <!-- Hero Section -->
       <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8 mb-8 text-center">
@@ -8,7 +8,7 @@
         </h1>
         <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
           Time-aware CVE threat scoring using public signals
-          <span class="text-emerald-400 text-sm">[Coming soon]</span>
+          <span class="text-cyan-400 text-sm">[Coming soon]</span>
         </p>
 
         <!-- CVE Input Form -->
@@ -22,13 +22,13 @@
                 v-model="cveInput"
                 type="text"
                 placeholder="CVE-2024-12345"
-                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 :class="{ 'border-red-500': inputError }"
               >
             </div>
             <button
               type="submit"
-              class="px-6 py-3 rounded-md bg-emerald-500/10 text-lg font-semibold text-emerald-500 ring-1 ring-inset ring-emerald-600/10 hover:opacity-80 transition ease-in-out duration-200"
+              class="px-6 py-3 rounded-md bg-cyan-500/10 text-lg font-semibold text-cyan-500 ring-1 ring-inset ring-cyan-600/10 hover:opacity-80 transition ease-in-out duration-200"
             >
               Analyze
             </button>
@@ -59,7 +59,7 @@
         <!-- Score Badge -->
         <div class="flex justify-center mb-8">
           <div class="text-center">
-            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-3xl font-bold mb-2">
+            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 text-white text-3xl font-bold mb-2">
               {{ mockData.secscore }}
             </div>
             <p class="text-gray-400 text-sm">
@@ -138,8 +138,8 @@
               </p>
             </div>
             <div class="p-4 rounded-lg border border-white/10 bg-white/5">
-              <div class="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-2">
-                <BoltIcon class="w-4 h-4 text-emerald-400" />
+              <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
+                <BoltIcon class="w-4 h-4 text-cyan-400" />
               </div>
               <p class="text-gray-100 font-medium text-sm">
                 EPSS
@@ -222,7 +222,7 @@
                 </div>
               </div>
               <div class="flex items-center">
-                <div class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center relative z-10">
+                <div class="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center relative z-10">
                   <ChartBarIcon class="w-4 h-4 text-white" />
                 </div>
                 <div class="ml-4">
