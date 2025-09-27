@@ -1,0 +1,6 @@
+{
+  "default": { "mu": -0.2857, "lambda": 21.79, "kappa": 0.9075 },
+  "php":     { "mu": -0.4286, "lambda": 14.56, "kappa": 1.1280 },
+  "linux":   { "mu":  0.8571, "lambda": 25.59, "kappa": 0.8485 },
+  "windows": { "mu": -0.1429, "lambda": 32.31, "kappa": 0.7502 }
+}

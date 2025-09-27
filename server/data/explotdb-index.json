@@ -1,0 +1,14 @@
+[
+  {
+    "source": "exploitdb",
+    "url": "https://www.exploit-db.com/exploits/41471",
+    "publishedDate": "2017-04-09T00:00:00Z",
+    "cve": "CVE-2017-0144"
+  },
+  {
+    "source": "exploitdb",
+    "url": "https://www.exploit-db.com/exploits/49920",
+    "publishedDate": "2021-04-15T00:00:00Z",
+    "cve": "CVE-2020-0796"
+  }
+]
