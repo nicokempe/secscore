@@ -104,6 +104,31 @@
         </div>
       </div>
 
+      <!-- Not Found State -->
+      <div
+        v-if="notFound && !isLoading"
+        class="glass-card p-8 mb-8 border border-red-500/30 bg-red-500/5"
+      >
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center">
+            <MagnifyingGlassCircleIcon class="w-6 h-6 text-red-400" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-neutral-100 mb-1">
+              We couldn't find that CVE
+            </h3>
+            <p class="text-neutral-300 text-sm mb-3">
+              Double-check the identifier or try a different CVE ID. Some older or private CVEs may not be published in public sources yet.
+            </p>
+            <ul class="list-disc list-inside text-neutral-400 text-sm space-y-1">
+              <li>Ensure the format is <span class="text-neutral-200">CVE-YYYY-NNNN</span></li>
+              <li>Try the closest related vendor advisory or product bulletin</li>
+              <li>Come back later as data sources update periodically</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <!-- Results Panel -->
       <div
         v-if="showResults && currentData"
@@ -444,7 +469,7 @@
 </template>
 
 <script setup lang="ts">
-import { BoltIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, FireIcon, PlusIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
+import { BoltIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, FireIcon, MagnifyingGlassCircleIcon, PlusIcon, ShieldCheckIcon } from '@heroicons/vue/20/solid';
 import type { SecScoreResponse } from '~/types/secscore.types';
 
 const cveInput = ref('');
@@ -453,7 +478,14 @@ const apiError = ref('');
 const showResults = ref(false);
 const isLoading = ref(false);
 const currentLoadingStep = ref(0);
-const loadingMessage = ref('');
+const fallbackLoadingMessage = 'Preparing analysis...';
+const loadingMessage = ref(fallbackLoadingMessage);
+const notFound = ref(false);
+
+const LOADING_STEP_INTERVAL = 500;
+const LOADING_COMPLETION_INTERVAL = 120;
+let loadingStepTimer: ReturnType<typeof setInterval> | undefined;
+let completionTimer: ReturnType<typeof setInterval> | undefined;
 
 const loadingSteps = [
   { name: 'validate', label: 'Validating CVE format' },
@@ -469,6 +501,80 @@ const secscoreData = ref<SecScoreResponse | null>(null);
 const currentData = computed(() => secscoreData.value);
 
 const cveRegex = /^CVE-\d{4}-\d{4,}$/;
+
+const stopLoadingProgress = () => {
+  if (loadingStepTimer) {
+    clearInterval(loadingStepTimer);
+    loadingStepTimer = undefined;
+  }
+
+  if (completionTimer) {
+    clearInterval(completionTimer);
+    completionTimer = undefined;
+  }
+};
+
+const startLoadingProgress = () => {
+  stopLoadingProgress();
+
+  if (loadingSteps.length === 0) {
+    loadingMessage.value = fallbackLoadingMessage;
+    return;
+  }
+
+  currentLoadingStep.value = 0;
+  loadingMessage.value = loadingSteps[0]?.label ?? fallbackLoadingMessage;
+
+  if (loadingSteps.length === 1) {
+    return;
+  }
+
+  loadingStepTimer = setInterval(() => {
+    if (currentLoadingStep.value >= loadingSteps.length - 1) {
+      if (loadingStepTimer) {
+        clearInterval(loadingStepTimer);
+        loadingStepTimer = undefined;
+      }
+      return;
+    }
+
+    currentLoadingStep.value += 1;
+    loadingMessage.value = loadingSteps[currentLoadingStep.value]?.label ?? fallbackLoadingMessage;
+  }, LOADING_STEP_INTERVAL);
+};
+
+const completeLoadingProgress = async (finalMessage: string) =>
+  new Promise<void>((resolve) => {
+    stopLoadingProgress();
+
+    if (loadingSteps.length === 0) {
+      loadingMessage.value = finalMessage;
+      resolve();
+      return;
+    }
+
+    const finalize = () => {
+      stopLoadingProgress();
+      currentLoadingStep.value = loadingSteps.length;
+      loadingMessage.value = finalMessage;
+      resolve();
+    };
+
+    if (currentLoadingStep.value >= loadingSteps.length - 1) {
+      finalize();
+      return;
+    }
+
+    completionTimer = setInterval(() => {
+      if (currentLoadingStep.value < loadingSteps.length - 1) {
+        currentLoadingStep.value += 1;
+        loadingMessage.value = loadingSteps[currentLoadingStep.value]?.label ?? fallbackLoadingMessage;
+        return;
+      }
+
+      finalize();
+    }, LOADING_COMPLETION_INTERVAL);
+  });
 
 const analyzeCve = async () => {
   inputError.value = '';
@@ -491,22 +597,36 @@ const analyzeCve = async () => {
   // Start loading sequence
   secscoreData.value = null;
   isLoading.value = true;
-  currentLoadingStep.value = 0;
   showResults.value = false;
+  notFound.value = false;
+  startLoadingProgress();
+
+  let completionMessage = 'SecScore ready';
+  let shouldDisplayResults = false;
 
   try {
     const data = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveId)}`);
     secscoreData.value = data;
-    showResults.value = true;
-    currentLoadingStep.value = loadingSteps.length;
-    loadingMessage.value = 'SecScore ready';
+    shouldDisplayResults = true;
+    notFound.value = false;
   }
   catch (error: unknown) {
-    apiError.value = resolveErrorMessage(error);
-    loadingMessage.value = 'Failed to analyze CVE';
+    const statusCode = extractStatusCode(error);
+
+    if (statusCode === 404) {
+      notFound.value = true;
+      apiError.value = '';
+      completionMessage = 'CVE not found';
+    }
+    else {
+      apiError.value = resolveErrorMessage(error);
+      completionMessage = 'Failed to analyze CVE';
+    }
   }
   finally {
+    await completeLoadingProgress(completionMessage);
     isLoading.value = false;
+    showResults.value = shouldDisplayResults;
   }
 };
 
@@ -520,6 +640,29 @@ const formatDate = (dateString: string | null): string => {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const extractStatusCode = (error: unknown): number | null => {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  if (typeof (error as { statusCode?: unknown }).statusCode === 'number') {
+    return (error as { statusCode: number }).statusCode;
+  }
+
+  if (typeof (error as { status?: unknown }).status === 'number') {
+    return (error as { status: number }).status;
+  }
+
+  if ('response' in error) {
+    const response = (error as { response?: unknown }).response;
+    if (isRecord(response) && typeof response.status === 'number') {
+      return response.status;
+    }
+  }
+
+  return null;
+};
 
 const resolveErrorMessage = (error: unknown): string => {
   if (typeof error === 'string') {
@@ -549,6 +692,10 @@ const resolveErrorMessage = (error: unknown): string => {
 
   return 'Failed to analyze the CVE. Please try again later.';
 };
+
+onBeforeUnmount(() => {
+  stopLoadingProgress();
+});
 
 useSeoMeta({
   title: 'Time-aware CVE Threat Scoring',
