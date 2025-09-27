@@ -3,10 +3,11 @@ import { createError, defineEventHandler, getRouterParam, setResponseHeader } fr
 import { isValidCve } from '~/utils/validators';
 import { CACHE_TTL_MS } from '~~/server/lib/constants';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
-import { fetchEpss, fetchNvdMetadata, fetchOsv, isInKev, loadKevIndex, lookupExploitDb } from '~~/server/lib/fetchers';
+import { fetchEpss, fetchNvdMetadata, fetchOsv, lookupExploitDb } from '~~/server/lib/fetchers';
 import { readModelParams } from '~~/server/lib/model-params';
 import { asymmetricLaplaceCdf, buildExplanation, computeSecScore, inferCategory } from '~~/server/lib/secscore-engine';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
+import { getKevStatus, isInKev } from '~~/server/plugins/kev-loader';
 import type { SecScoreResponse } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
@@ -31,6 +32,10 @@ export default defineEventHandler(async (event) => {
       }
       setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
       setResponseHeader(event, 'X-Cache', 'HIT');
+      const latestKev = getKevStatus();
+      if (latestKev.updatedAt) {
+        setResponseHeader(event, 'X-KEV-Updated-At', latestKev.updatedAt);
+      }
       return payload;
     }
 
@@ -39,7 +44,6 @@ export default defineEventHandler(async (event) => {
       fetchEpss(cveId),
       fetchOsv(cveId),
     ]);
-    await loadKevIndex();
     const kev = isInKev(cveId);
     const exploits = lookupExploitDb(cveId);
 
@@ -91,6 +95,10 @@ export default defineEventHandler(async (event) => {
     lruSet(cacheKey, response, CACHE_TTL_MS);
     setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
     setResponseHeader(event, 'X-Cache', 'MISS');
+    const latestKev = getKevStatus();
+    if (latestKev.updatedAt) {
+      setResponseHeader(event, 'X-KEV-Updated-At', latestKev.updatedAt);
+    }
     return response;
   }
   catch (error) {

@@ -52,3 +52,33 @@ export const EPSS_BLEND_WEIGHT = 2.5;
  * Minimum SecScore enforced for CVEs listed in the CISA Known Exploited Vulnerabilities catalog.
  */
 export const KEV_MIN_FLOOR = 8.0;
+
+/**
+ * Canonical CISA Known Exploited Vulnerabilities feed endpoint.
+ */
+export const KEV_FEED_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+
+/**
+ * Filesystem path to the compact KEV cache used for quick reloads.
+ */
+export const KEV_COMPACT_PATH = 'server/.cache/kev-compact.json';
+
+/**
+ * Filesystem path to the bundled KEV fallback dataset tracked in git.
+ */
+export const KEV_FALLBACK_PATH = 'server/data/kev.json';
+
+/**
+ * Maximum time in milliseconds to wait for the remote KEV feed.
+ */
+export const KEV_FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * Default interval (in hours) for periodic KEV refreshes.
+ */
+export const KEV_REFRESH_INTERVAL_HOURS = 6;
+
+/**
+ * User agent string attached to outbound KEV HTTP requests.
+ */
+export const USER_AGENT = 'secscore-poc/1 kev-loader';

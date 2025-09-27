@@ -1,6 +1,6 @@
 import os from 'os';
 import packageInfo from '../../package.json';
-import { getKevMetadata, loadKevIndex } from '~~/server/lib/fetchers';
+import { getKevStatus } from '~~/server/plugins/kev-loader';
 
 /**
  * GET /api/health
@@ -48,8 +48,7 @@ export default defineEventHandler(async () => {
   // Measure response time
   const responseTime: string = `${Date.now() - start} ms`;
 
-  await loadKevIndex();
-  const kevDataset = getKevMetadata();
+  const kev = getKevStatus();
 
   // Structured response
   return {
@@ -97,10 +96,14 @@ export default defineEventHandler(async () => {
     },
     datasets: {
       kev: {
-        catalogVersion: kevDataset.catalogVersion,
-        lastUpdated: kevDataset.dateReleased,
+        catalogVersion: null,
+        lastUpdated: kev.updatedAt ?? null,
+        count: kev.count,
       },
     },
+    kevIndexLoaded: kev.count > 0,
+    kevCount: kev.count,
+    kevUpdatedAt: kev.updatedAt ?? null,
     response_time: responseTime,
   };
 });
@@ -204,13 +207,30 @@ defineRouteMeta({
                       properties: {
                         catalogVersion: { type: 'string', nullable: true },
                         lastUpdated: { type: 'string', format: 'date-time', nullable: true },
+                        count: { type: 'number', minimum: 0 },
                       },
                     },
                   },
                 },
+                kevIndexLoaded: { type: 'boolean' },
+                kevCount: { type: 'number', minimum: 0 },
+                kevUpdatedAt: { type: 'string', format: 'date-time', nullable: true },
                 response_time: { type: 'string', example: '4 ms' },
               },
-              required: ['status', 'version', 'health', 'time', 'memory', 'cpu', 'system', 'datasets', 'response_time'],
+              required: [
+                'status',
+                'version',
+                'health',
+                'time',
+                'memory',
+                'cpu',
+                'system',
+                'datasets',
+                'kevIndexLoaded',
+                'kevCount',
+                'kevUpdatedAt',
+                'response_time',
+              ],
             },
             examples: {
               example: {
@@ -248,10 +268,14 @@ defineRouteMeta({
                   },
                   datasets: {
                     kev: {
-                      catalogVersion: '2025.09.25',
+                      catalogVersion: null,
                       lastUpdated: '2025-09-25T16:17:38.0447Z',
+                      count: 1250,
                     },
                   },
+                  kevIndexLoaded: true,
+                  kevCount: 1250,
+                  kevUpdatedAt: '2025-09-25T16:17:38.0447Z',
                   response_time: '3 ms',
                 },
               },
