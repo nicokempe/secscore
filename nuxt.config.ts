@@ -31,6 +31,24 @@ export default defineNuxtConfig({
   css: [
     '~/assets/css/tailwind.css',
   ],
+  routeRules: {
+    '/api/v1/enrich/cve/**': {
+      security: {
+        rateLimiter: {
+          tokensPerInterval: 120,
+          interval: 60 * 60 * 1000,
+        },
+      },
+    },
+    '/api/v1/cve/**': {
+      security: {
+        rateLimiter: {
+          tokensPerInterval: 120,
+          interval: 60 * 60 * 1000,
+        },
+      },
+    },
+  },
   compatibilityDate: '2025-09-26',
   nitro: {
     preset: 'cloudflare_module',
@@ -41,6 +59,15 @@ export default defineNuxtConfig({
   eslint: {
     config: {
       stylistic: true,
+    },
+  },
+  security: {
+    rateLimiter: {
+      tokensPerInterval: 120,
+      interval: 60 * 60 * 1000,
+      headers: true,
+      ipHeader: 'cf-connecting-ip',
+      driver: { name: 'lruCache' },
     },
   },
   tailwindcss: {

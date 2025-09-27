@@ -1,9 +1,8 @@
 import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
-import { CACHE_TTL_MS, DEFAULT_RATE_LIMIT_PER_HOUR } from '~~/server/lib/constants';
+import { CACHE_TTL_MS } from '~~/server/lib/constants';
 import { fetchNvdMetadata } from '~~/server/lib/fetchers';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
-import { applyPerIpRateLimit } from '~~/server/lib/rate-limit';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
 import type { CveMetadata } from '~/types/secscore.types';
 
@@ -15,8 +14,6 @@ export default defineEventHandler(async (event) => {
     if (!isValidCve(cveId)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid CVE identifier' });
     }
-
-    await applyPerIpRateLimit(event, { limitPerHour: DEFAULT_RATE_LIMIT_PER_HOUR });
 
     const cacheKey: string = `cve:${cveId}`;
     const cached = lruGet<CveMetadata>(cacheKey);

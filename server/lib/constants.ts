@@ -4,11 +4,6 @@
  */
 
 /**
- * Default maximum number of requests permitted from a single IP address within a rolling hour.
- */
-export const DEFAULT_RATE_LIMIT_PER_HOUR = 120;
-
-/**
  * Cache time-to-live in milliseconds for CVE metadata and enrichment responses (24 hours).
  */
 export const CACHE_TTL_MS = 24 * 60 * 60 * 1000;

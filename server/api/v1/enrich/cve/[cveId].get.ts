@@ -1,12 +1,11 @@
 import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
-import { CACHE_TTL_MS, DEFAULT_RATE_LIMIT_PER_HOUR } from '~~/server/lib/constants';
+import { CACHE_TTL_MS } from '~~/server/lib/constants';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
 import { fetchEpss, fetchNvdMetadata, isInKev, loadKevIndex, lookupExploitDb } from '~~/server/lib/fetchers';
 import { readModelParams } from '~~/server/lib/model-params';
 import { asymmetricLaplaceCdf, buildExplanation, computeSecScore, inferCategory } from '~~/server/lib/secscore-engine';
 import { lruGet, lruSet } from '~~/server/lib/lru-cache';
-import { applyPerIpRateLimit } from '~~/server/lib/rate-limit';
 import type { SecScoreResponse } from '~/types/secscore.types';
 
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
@@ -17,8 +16,6 @@ export default defineEventHandler(async (event) => {
     if (!isValidCve(cveId)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid CVE identifier' });
     }
-
-    await applyPerIpRateLimit(event, { limitPerHour: DEFAULT_RATE_LIMIT_PER_HOUR });
 
     const cacheKey = `enrich:${cveId}`;
     const cached = lruGet<SecScoreResponse>(cacheKey);
