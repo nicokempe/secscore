@@ -710,6 +710,34 @@ useSeoMeta({
   twitterImage: '/images/og/secscore.webp',
   twitterCard: 'summary_large_image',
 });
+
+useHead({
+  htmlAttrs: {
+    lang: 'en',
+  },
+  link: [
+    // Light mode SVG
+    {
+      rel: 'icon',
+      type: 'image/svg+xml',
+      href: '/favicon-light.svg',
+      media: '(prefers-color-scheme: light)',
+    },
+    // Dark mode SVG
+    {
+      rel: 'icon',
+      type: 'image/svg+xml',
+      href: '/favicon-dark.svg',
+      media: '(prefers-color-scheme: dark)',
+    },
+    // Legacy ICO fallback
+    {
+      rel: 'icon',
+      type: 'image/x-icon',
+      href: '/favicon.ico',
+    },
+  ],
+});
 </script>
 
 <style scoped>
