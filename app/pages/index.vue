@@ -8,7 +8,7 @@
         </h1>
         <p class="text-neutral-400 mb-8 max-w-2xl mx-auto">
           Time-aware CVE threat scoring using public signals
-          <span class="text-cyan-400 text-sm">[Coming soon]</span>
+          <span class="text-cyan-400 text-sm">(WIP)</span>
         </p>
 
         <!-- CVE Input Form -->
@@ -114,7 +114,7 @@
             Analysis Results
           </h2>
           <div class="flex items-center gap-2">
-            <span class="text-sm text-neutral-400">[Coming soon] Live data & API</span>
+            <span class="text-sm text-neutral-400">(WIP) Live data & API</span>
           </div>
         </div>
 
