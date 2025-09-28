@@ -13,6 +13,19 @@ import type { SecScoreResponse } from '~/types/secscore.types';
 const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
 const MODEL_VERSION = '1';
 
+const resolveCvssVersion = (vector: string | null, version: string | null | undefined): string | null => {
+  if (version) {
+    return version;
+  }
+
+  if (!vector) {
+    return null;
+  }
+
+  const match = vector.match(/^CVSS:([0-9.]+)/i);
+  return match?.[1] ?? null;
+};
+
 export default defineEventHandler(async (event) => {
   const requestId = randomUUID();
   setResponseHeader(event, 'X-Request-Id', requestId);
@@ -44,8 +57,14 @@ export default defineEventHandler(async (event) => {
     const cacheKey: string = `enrich:${cveId}`;
     const cached = lruGet<SecScoreResponse>(cacheKey);
     if (cached) {
-      const payload = cached.modelVersion === MODEL_VERSION ? cached : { ...cached, modelVersion: MODEL_VERSION };
-      if (payload !== cached) {
+      const payload: SecScoreResponse = {
+        ...cached,
+        cvssVersion: resolveCvssVersion(cached.cvssVector, cached.cvssVersion),
+        modelVersion: MODEL_VERSION,
+      };
+
+      const shouldUpdateCache = payload.modelVersion !== cached.modelVersion || payload.cvssVersion !== cached.cvssVersion;
+      if (shouldUpdateCache) {
         lruSet(cacheKey, payload, CACHE_TTL_MS);
       }
       setResponseHeader(event, 'Cache-Control', CACHE_CONTROL_HEADER);
@@ -77,7 +96,7 @@ export default defineEventHandler(async (event) => {
     const secscoreComputation = computeSecScore({
       cvssBase: metadata.cvssBase,
       cvssVector: metadata.cvssVector,
-      cvssVersion: metadata.cvssVersion,
+      cvssVersion: resolveCvssVersion(metadata.cvssVector, metadata.cvssVersion),
       exploitProb,
       kev,
       hasExploit,
@@ -92,6 +111,7 @@ export default defineEventHandler(async (event) => {
       publishedDate: metadata.publishedDate,
       cvssBase: metadata.cvssBase,
       cvssVector: metadata.cvssVector,
+      cvssVersion: resolveCvssVersion(metadata.cvssVector, metadata.cvssVersion),
       secscore,
       exploitProb,
       modelCategory: category,
