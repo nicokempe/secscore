@@ -8,6 +8,16 @@ const FALLBACK_PARAMS: ModelParameters = {
   php: { mu: -0.4286, lambda: 14.56, kappa: 1.128 },
   linux: { mu: 0.8571, lambda: 25.59, kappa: 0.8485 },
   windows: { mu: -0.1429, lambda: 32.31, kappa: 0.7502 },
+  webapps: { mu: -0.2857, lambda: 21.79, kappa: 0.9075 },
+  remote: { mu: -0.2857, lambda: 21.79, kappa: 0.9075 },
+  local: { mu: -0.2857, lambda: 21.79, kappa: 0.9075 },
+  dos: { mu: 0.8571, lambda: 25.59, kappa: 0.8485 },
+  java: { mu: -0.4286, lambda: 14.56, kappa: 1.128 },
+  asp: { mu: -0.1429, lambda: 32.31, kappa: 0.7502 },
+  android: { mu: -0.2857, lambda: 21.79, kappa: 0.9075 },
+  ios: { mu: -0.1429, lambda: 32.31, kappa: 0.7502 },
+  macos: { mu: -0.1429, lambda: 32.31, kappa: 0.7502 },
+  hardware: { mu: 0.8571, lambda: 25.59, kappa: 0.8485 },
 };
 
 let paramsCache: ModelParameters | null = null;
