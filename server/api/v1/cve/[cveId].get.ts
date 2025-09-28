@@ -52,10 +52,10 @@ defineRouteMeta({
     tags: ['Security Score'],
     summary: 'Get CVE metadata by ID',
     description:
-      'Returns normalized CVE metadata for a given identifier (validated). '
-      + 'Accepted format: CVE-YYYY-NNNN… (year is 1999–current; numeric part is 4–7 digits). '
-      + 'Input length/pattern constraints are enforced server-side; since min/maxLength are not supported here, they are documented in this description. '
-      + 'Responses are cached (LRU) and include `Cache-Control` headers for client/proxy caching.',
+      'Returns normalized CVE metadata sourced from NVD. '
+      + 'The identifier must match `CVE-YYYY-NNNN+` (year 1999–current; numeric portion ≥ 4 digits). '
+      + 'Pattern validation happens server-side to protect upstream services. '
+      + 'Responses are cached (LRU) and include caching headers for clients and proxies.',
     parameters: [
       {
         in: 'path',
@@ -77,6 +77,18 @@ defineRouteMeta({
               'HTTP caching directives applied by the server (e.g., `public, max-age=3600, stale-while-revalidate=86400`).',
             schema: { type: 'string' },
           },
+          'X-Request-Id': {
+            description: 'Unique identifier assigned to the request for tracing/log correlation.',
+            schema: { type: 'string', format: 'uuid' },
+          },
+          'X-Cache': {
+            description: 'Cache hit metadata (`HIT` or `MISS`).',
+            schema: { type: 'string', enum: ['HIT', 'MISS'] },
+          },
+          'SecScore-Model-Version': {
+            description: 'Model version embedded in the response payload.',
+            schema: { type: 'string' },
+          },
         },
         content: {
           'application/json': {
@@ -85,22 +97,15 @@ defineRouteMeta({
               example: {
                 summary: 'Typical CVE metadata payload',
                 value: {
-                  id: 'CVE-2024-12345',
-                  source: 'nvd',
-                  published: '2024-06-12T09:30:00Z',
-                  lastModified: '2024-06-20T14:05:00Z',
-                  cvss: {
-                    version: '3.1',
-                    baseScore: 7.5,
-                    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-                  },
-                  cwe: ['CWE-79'],
-                  descriptions: [
-                    { lang: 'en', value: 'Cross-site scripting in ...' },
+                  cveId: 'CVE-2024-12345',
+                  publishedDate: '2024-06-12T09:30:00Z',
+                  description: 'Cross-site scripting in ExampleCMS allows attackers to exfiltrate session cookies.',
+                  cvssBase: 7.5,
+                  cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+                  cpe: [
+                    'cpe:2.3:a:examplecms:examplecms:3.2.1:*:*:*:*:*:*:*',
                   ],
-                  references: [
-                    { url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-12345' },
-                  ],
+                  modelVersion: '1',
                 },
               },
             },

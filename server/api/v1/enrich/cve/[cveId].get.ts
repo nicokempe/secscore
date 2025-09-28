@@ -141,9 +141,10 @@ defineRouteMeta({
       + '- **EPSS** likelihood\n'
       + '- **CISA KEV** inclusion flag\n'
       + '- **ExploitDB** lookup\n'
+      + '- **OSV** affected package breakdown (if available)\n'
       + '- Model category & parameters used by the asymmetric Laplace CDF (μ, λ, κ)\n\n'
-      + 'The `cveId` is strictly validated against the `CVE-YYYY-NNNN+` pattern (year 1999–current; numeric part ≥4 digits). '
-      + 'Results are LRU-cached and responses include `Cache-Control` to enable client/proxy caching.',
+      + 'The `cveId` must match the `CVE-YYYY-NNNN+` pattern (year 1999–current; numeric part ≥ 4 digits). '
+      + 'Requests are validated server-side, cached (LRU), and respond with cache metadata headers.',
     parameters: [
       {
         in: 'path',
@@ -166,6 +167,22 @@ defineRouteMeta({
               'HTTP caching directives applied by the server (e.g., `public, max-age=3600, stale-while-revalidate=86400`).',
             schema: { type: 'string' },
           },
+          'X-Request-Id': {
+            description: 'Unique identifier assigned to the request for tracing/log correlation.',
+            schema: { type: 'string', format: 'uuid' },
+          },
+          'X-Cache': {
+            description: 'Cache hit metadata (`HIT` or `MISS`).',
+            schema: { type: 'string', enum: ['HIT', 'MISS'] },
+          },
+          'SecScore-Model-Version': {
+            description: 'Model version embedded in the response payload.',
+            schema: { type: 'string' },
+          },
+          'X-KEV-Updated-At': {
+            description: 'Timestamp (ISO8601) of the latest KEV dataset available to the service (header omitted if unknown).',
+            schema: { type: 'string', format: 'date-time' },
+          },
         },
         content: {
           'application/json': {
@@ -178,24 +195,57 @@ defineRouteMeta({
                   publishedDate: '2024-06-12T09:30:00Z',
                   cvssBase: 7.5,
                   cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-                  secscore: 0.81,
+                  secscore: 8.1,
                   exploitProb: 0.63,
-                  modelCategory: 'server_rce',
+                  modelCategory: 'windows',
                   modelParams: { mu: 4.0, lambda: 0.45, kappa: 1.2 },
-                  epss: 0.54,
+                  epss: {
+                    score: 0.54,
+                    percentile: 0.92,
+                    fetchedAt: '2024-06-20T12:00:00Z',
+                  },
                   kev: true,
                   exploits: [
                     {
-                      id: 'EDB-123456',
                       source: 'exploitdb',
-                      title: 'PoC exploit for CVE-2024-12345',
                       url: 'https://www.exploit-db.com/exploits/123456',
                       publishedDate: '2024-06-15T00:00:00Z',
                     },
                   ],
-                  explanation:
-                    'High SecScore due to KEV inclusion, available exploit(s), elevated EPSS, and recent publication. Model category server_rce with μ=4.0, λ=0.45, κ=1.2 produced exploit probability 0.63.',
-                  computedAt: '2025-09-27T03:00:00Z',
+                  osv: [
+                    {
+                      ecosystem: 'npm',
+                      package: 'examplecms',
+                      ranges: [
+                        {
+                          type: 'SEMVER',
+                          events: [
+                            {
+                              introduced: '1.0.0',
+                              fixed: '1.2.0',
+                              lastAffected: null,
+                              limit: '< 1.2.0',
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                  explanation: [
+                    { title: 'CISA KEV', detail: 'Listed by CISA KEV', source: 'cisa-kev' },
+                    { title: 'Exploit PoC', detail: 'ExploitDB entry from 2024-06-15', source: 'exploitdb' },
+                    { title: 'EPSS', detail: 'EPSS=0.54 (p92)', source: 'epss' },
+                    {
+                      title: 'Time-aware',
+                      detail:
+                        'AL-CDF exploitProb=0.630 at tWeeks=1.0 for category=windows (mu=4.00, lambda=0.45, kappa=1.20)',
+                      source: 'secscore',
+                    },
+                    { title: 'CVSS Base', detail: 'CVSS base score 7.5', source: 'cvss' },
+                    { title: 'SecScore', detail: 'Final SecScore 8.1', source: 'secscore' },
+                  ],
+                  computedAt: '2024-06-20T12:34:56.000Z',
+                  modelVersion: '1',
                 },
               },
             },
@@ -203,7 +253,13 @@ defineRouteMeta({
         },
       },
       400: {
-        description: 'Validation error. The provided CVE identifier is invalid.',
+        description: 'Validation error (e.g., malformed CVE identifier or missing Turnstile token).',
+        content: {
+          'application/json': { schema: { $ref: '#/components/schemas/Error' } },
+        },
+      },
+      403: {
+        description: 'Turnstile verification failed.',
         content: {
           'application/json': { schema: { $ref: '#/components/schemas/Error' } },
         },
