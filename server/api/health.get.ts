@@ -12,31 +12,31 @@ import { getKevStatus } from '~~/server/plugins/kev-loader';
  * @returns { status: number, version: string, health: object }
  */
 export default defineEventHandler(async () => {
-  const start: number = Date.now();
+  const requestStartTime: number = Date.now();
 
   // Gather system information
   const uptime: number = process.uptime();
-  const currentTime: string = new Date().toISOString();
-  const timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const currentTimestamp: string = new Date().toISOString();
+  const resolvedTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const memoryUsage = process.memoryUsage();
   const cpuUsage = process.cpuUsage();
   const freeMemoryPercentage: string = ((os.freemem() / os.totalmem()) * 100).toFixed(2);
   const nodeVersion: string = process.version;
 
   // Define thresholds for health conditions
-  const thresholds = {
+  const healthThresholds = {
     min_uptime: 300, // Minimum 5 minutes (in seconds)
     min_free_memory_percentage: 15, // Minimum 15% free memory
   };
 
   // Check for health conditions
-  const healthIssues = {
-    low_memory: parseFloat(freeMemoryPercentage) < thresholds.min_free_memory_percentage,
-    short_uptime: uptime < thresholds.min_uptime,
+  const healthIssueFlags = {
+    low_memory: parseFloat(freeMemoryPercentage) < healthThresholds.min_free_memory_percentage,
+    short_uptime: uptime < healthThresholds.min_uptime,
   };
 
   // Determine health status based on conditions
-  const isHealthy: boolean = !healthIssues.low_memory && !healthIssues.short_uptime;
+  const isHealthy: boolean = !healthIssueFlags.low_memory && !healthIssueFlags.short_uptime;
   const healthStatus: 'healthy' | 'unhealthy' = isHealthy ? 'healthy' : 'unhealthy';
 
   // Uptime breakdown for readability
@@ -46,9 +46,9 @@ export default defineEventHandler(async () => {
   const uptimeSeconds: number = Math.floor(uptime % 60);
 
   // Measure response time
-  const responseTime: string = `${Date.now() - start} ms`;
+  const responseDuration: string = `${Date.now() - requestStartTime} ms`;
 
-  const kev = getKevStatus();
+  const kevStatus = getKevStatus();
 
   // Structured response
   return {
@@ -56,12 +56,12 @@ export default defineEventHandler(async () => {
     version: packageInfo.version,
     health: {
       status: healthStatus,
-      issues: healthIssues,
-      thresholds,
+      issues: healthIssueFlags,
+      thresholds: healthThresholds,
     },
     time: {
-      current_time: currentTime,
-      timezone: timezone,
+      current_time: currentTimestamp,
+      timezone: resolvedTimezone,
       uptime: {
         days: uptimeDays,
         hours: uptimeHours,
@@ -97,14 +97,14 @@ export default defineEventHandler(async () => {
     datasets: {
       kev: {
         catalogVersion: null,
-        lastUpdated: kev.updatedAt ?? null,
-        count: kev.count,
+        lastUpdated: kevStatus.updatedAt ?? null,
+        count: kevStatus.count,
       },
     },
-    kevIndexLoaded: kev.count > 0,
-    kevCount: kev.count,
-    kevUpdatedAt: kev.updatedAt ?? null,
-    response_time: responseTime,
+    kevIndexLoaded: kevStatus.count > 0,
+    kevCount: kevStatus.count,
+    kevUpdatedAt: kevStatus.updatedAt ?? null,
+    response_time: responseDuration,
   };
 });
 
