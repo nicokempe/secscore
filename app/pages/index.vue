@@ -177,7 +177,7 @@
         </div>
 
         <!-- Key Facts -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div class="text-center relative group cursor-help">
             <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
               CVE ID
