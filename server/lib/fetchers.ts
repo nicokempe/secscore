@@ -1,17 +1,47 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { $fetch, type FetchOptions } from 'ofetch';
 import { useLogger } from '~/composables/useLogger';
-import { $fetch } from 'ofetch';
-import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
-import type { CveMetadata, EpssSignal, ExploitEvidence, OsvAffectedPackage } from '~/types/secscore.types';
+import { FETCH_TIMEOUT_MS, UPSTREAM_USER_AGENT } from '~~/server/lib/constants';
+import type { CvssTemporalMultipliers, CveMetadata, EpssSignal, ExploitEvidence, OsvAffectedPackage } from '~/types/secscore.types';
 import type {
   ExploitDbRecord,
   HttpErrorLike,
   NvdConfigurationNode,
   NvdCve,
+  NvdCvssMetric,
   NvdResponse,
+  OsvAffected,
+  OsvEvent,
+  OsvRange,
   OsvResponse,
 } from '~/types/fetchers.types';
+
+const RETRY_ATTEMPTS = 2;
+const RETRY_DELAY_MIN_MS = 200;
+const RETRY_DELAY_MAX_MS = 400;
+
+const COMMON_HEADERS: Record<string, string> = {
+  'User-Agent': UPSTREAM_USER_AGENT,
+  'Accept': 'application/json',
+};
+
+const CVSS_V3_RL_CODES: Record<string, number> = { X: 1, U: 1, W: 0.97, T: 0.96, O: 0.95 };
+const CVSS_V3_RL_TEXT: Record<string, number> = {
+  NOT_DEFINED: 1,
+  UNAVAILABLE: 1,
+  WORKAROUND: 0.97,
+  TEMPORARY: 0.96,
+  OFFICIAL: 0.95,
+};
+
+const CVSS_V3_RC_CODES: Record<string, number> = { X: 1, C: 1, R: 0.96, U: 0.92 };
+const CVSS_V3_RC_TEXT: Record<string, number> = {
+  NOT_DEFINED: 1,
+  CONFIRMED: 1,
+  REASONABLE: 0.96,
+  UNKNOWN: 0.92,
+};
 
 let exploitDbRecords: ExploitDbRecord[] | null = null;
 
@@ -26,6 +56,137 @@ function isHttpErrorLike(value: unknown): value is HttpErrorLike {
   );
 }
 
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolveDelay => setTimeout(resolveDelay, ms));
+}
+
+async function withRetries<T>(fn: () => Promise<T>, retries = RETRY_ATTEMPTS): Promise<T> {
+  let attempt = 0;
+  let lastError: unknown;
+  while (attempt <= retries) {
+    try {
+      return await fn();
+    }
+    catch (error) {
+      lastError = error;
+      if (attempt === retries) {
+        break;
+      }
+      const jitter = RETRY_DELAY_MIN_MS + Math.floor(Math.random() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS + 1));
+      await delay(jitter);
+      attempt += 1;
+    }
+  }
+  throw lastError;
+}
+
+function normalizeHeaders(headers?: FetchOptions['headers']): FetchOptions['headers'] {
+  if (!headers) {
+    return COMMON_HEADERS;
+  }
+  if (Array.isArray(headers)) {
+    return headers.concat(Object.entries(COMMON_HEADERS));
+  }
+  if (headers instanceof Headers) {
+    const merged = new Headers(headers);
+    for (const [key, value] of Object.entries(COMMON_HEADERS)) {
+      if (!merged.has(key)) {
+        merged.set(key, value);
+      }
+    }
+    return merged;
+  }
+  return { ...COMMON_HEADERS, ...headers };
+}
+
+function remediationMultiplierFromValue(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.toUpperCase();
+  return CVSS_V3_RL_CODES[normalized] ?? CVSS_V3_RL_TEXT[normalized] ?? null;
+}
+
+function reportConfidenceMultiplierFromValue(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.toUpperCase();
+  return CVSS_V3_RC_CODES[normalized] ?? CVSS_V3_RC_TEXT[normalized] ?? null;
+}
+
+function parseCvssVector(vector: string | null): { version: string | null, metrics: Record<string, string> } {
+  if (!vector) {
+    return { version: null, metrics: {} };
+  }
+  const parts = vector.split('/');
+  const prefix = parts.shift();
+  let version: string | null = null;
+  if (prefix?.startsWith('CVSS:')) {
+    const segments = prefix.split(':');
+    version = segments[1] ?? null;
+  }
+  const metrics: Record<string, string> = {};
+  for (const part of parts) {
+    const [key, value] = part.split(':');
+    if (key && value) {
+      metrics[key] = value;
+    }
+  }
+  return { version, metrics };
+}
+
+function deriveTemporalMultipliers(metric: NvdCvssMetric | undefined, vector: string | null): CvssTemporalMultipliers {
+  const { metrics } = parseCvssVector(vector);
+  const remediation = remediationMultiplierFromValue(metric?.remediationLevel)
+    ?? remediationMultiplierFromValue(metrics.RL ?? metrics.R);
+  const reportConfidence = reportConfidenceMultiplierFromValue(metric?.reportConfidence)
+    ?? reportConfidenceMultiplierFromValue(metrics.RC);
+  return {
+    remediationLevel: remediation ?? null,
+    reportConfidence: reportConfidence ?? null,
+  };
+}
+
+function selectCvssMetric(cve: NvdCve): {
+  metric: NvdCvssMetric | undefined
+  vector: string | null
+  baseScore: number | null
+  version: string | null
+  multipliers: CvssTemporalMultipliers
+} {
+  const metric = cve.metrics?.cvssMetricV40?.[0]
+    ?? cve.metrics?.cvssMetricV31?.[0]
+    ?? cve.metrics?.cvssMetricV30?.[0]
+    ?? cve.metrics?.cvssMetricV3?.[0]
+    ?? cve.metrics?.cvssMetricV2?.[0];
+
+  const cvssData = metric?.cvssData ?? metric?.baseMetrics;
+  const vectorString = typeof cvssData?.vectorString === 'string' ? cvssData.vectorString : null;
+  const parsed = parseCvssVector(vectorString);
+  const baseScoreCandidate = cvssData?.baseScore ?? cvssData?.score ?? null;
+  const baseScore = typeof baseScoreCandidate === 'number' ? baseScoreCandidate : null;
+  const multipliers = deriveTemporalMultipliers(metric, vectorString);
+
+  return {
+    metric,
+    vector: vectorString,
+    baseScore,
+    version: cvssData?.version ?? parsed.version,
+    multipliers,
+  };
+}
+
+async function fetchJson<T>(url: string, options: FetchOptions<'json'>): Promise<T> {
+  const mergedHeaders = normalizeHeaders(options.headers);
+  return withRetries(() => $fetch<T>(url, {
+    ...options,
+    headers: mergedHeaders,
+    timeout: options.timeout ?? FETCH_TIMEOUT_MS,
+    retry: 0,
+  }));
+}
+
 /**
  * Fetches CVE metadata from the NVD v2 API and normalizes it into the service shape.
  */
@@ -36,15 +197,16 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
     description: null,
     cvssBase: null,
     cvssVector: null,
+    cvssVersion: null,
+    temporalMultipliers: { remediationLevel: null, reportConfidence: null },
     cpe: [],
     modelVersion: '1',
   };
 
   try {
-    const response: NvdResponse = await $fetch<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
+    const response = await fetchJson<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
+      method: 'GET',
       query: { cveId },
-      retry: 2,
-      timeout: FETCH_TIMEOUT_MS,
     });
 
     const vulnerability = response.vulnerabilities?.find(item => item.cve?.id === cveId) ?? response.vulnerabilities?.[0];
@@ -60,16 +222,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
     const publishedDate = typeof cve.published === 'string' ? cve.published : null;
     const description = cve.descriptions?.find(entry => entry.lang === 'en')?.value ?? cve.descriptions?.[0]?.value ?? null;
 
-    const cvssData
-      = cve.metrics?.cvssMetricV31?.[0]?.cvssData
-        || cve.metrics?.cvssMetricV40?.[0]?.cvssData
-        || cve.metrics?.cvssMetricV30?.[0]?.cvssData
-        || cve.metrics?.cvssMetricV3?.[0]?.cvssData
-        || cve.metrics?.cvssMetricV2?.[0]?.baseMetrics;
-
-    const baseScoreCandidate = cvssData?.baseScore ?? cvssData?.score ?? null;
-    const cvssBase = typeof baseScoreCandidate === 'number' ? baseScoreCandidate : null;
-    const cvssVector = typeof cvssData?.vectorString === 'string' ? cvssData.vectorString : null;
+    const selected = selectCvssMetric(cve);
 
     const cpeSet: Set<string> = new Set<string>();
     const collectCpe = (nodes?: NvdConfigurationNode[]): void => {
@@ -93,8 +246,10 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       cveId,
       publishedDate,
       description,
-      cvssBase,
-      cvssVector,
+      cvssBase: selected.baseScore,
+      cvssVector: selected.vector,
+      cvssVersion: selected.version ?? null,
+      temporalMultipliers: selected.multipliers,
       cpe: Array.from(cpeSet),
       modelVersion: '1',
     };
@@ -111,7 +266,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       error: errorMessage,
       ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
     };
-    logger.error('nvd.fetch_failed', meta);
+    logger.warn('nvd.fetch_failed', meta);
     return defaultMetadata;
   }
 }
@@ -121,10 +276,9 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
  */
 export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
   try {
-    const response = await $fetch<{ data?: Array<{ cve?: string, epss?: string, percentile?: string }> }>('https://api.first.org/data/v1/epss', {
+    const response = await fetchJson<{ data?: Array<{ cve?: string, epss?: string, percentile?: string }> }>('https://api.first.org/data/v1/epss', {
+      method: 'GET',
       query: { cve: cveId },
-      retry: 2,
-      timeout: FETCH_TIMEOUT_MS,
     });
 
     const record = response.data?.find(entry => entry.cve === cveId);
@@ -189,29 +343,49 @@ export function lookupExploitDb(cveId: string): ExploitEvidence[] {
   }));
 }
 
+function normalizeOsvEvent(event: OsvEvent): { introduced: string | null, fixed: string | null, lastAffected: string | null, limit: string | null } {
+  return {
+    introduced: event.introduced ?? null,
+    fixed: event.fixed ?? null,
+    lastAffected: event.last_affected ?? null,
+    limit: event.limit ?? null,
+  };
+}
+
+function normalizeOsvRange(range: OsvRange): { type: string | null, events: Array<{ introduced: string | null, fixed: string | null, lastAffected: string | null, limit: string | null }> } {
+  return {
+    type: range.type ?? null,
+    events: (range.events ?? []).map(normalizeOsvEvent),
+  };
+}
+
+function normalizeOsvPackage(entry: OsvAffected): OsvAffectedPackage {
+  const ranges = (entry.ranges ?? []).map(normalizeOsvRange);
+  return {
+    ecosystem: entry.package?.ecosystem ?? null,
+    package: entry.package?.name ?? null,
+    ranges: ranges.map(range => ({
+      type: range.type,
+      events: range.events.map(event => ({
+        introduced: event.introduced,
+        fixed: event.fixed,
+        lastAffected: event.lastAffected,
+        limit: event.limit,
+      })),
+    })),
+  };
+}
+
 /**
  * Fetches affected package information from OSV for the provided CVE identifier.
  */
 export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | null> {
   try {
-    const response = await $fetch<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
-      retry: 2,
-      timeout: FETCH_TIMEOUT_MS,
+    const response = await fetchJson<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
+      method: 'GET',
     });
 
-    const affectedPackages = response.affected?.map<OsvAffectedPackage>(entry => ({
-      ecosystem: entry.package?.ecosystem ?? null,
-      package: entry.package?.name ?? null,
-      ranges: (entry.ranges ?? []).map(range => ({
-        type: range.type ?? null,
-        events: (range.events ?? []).map(event => ({
-          introduced: event.introduced ?? null,
-          fixed: event.fixed ?? null,
-          lastAffected: event.last_affected ?? null,
-          limit: event.limit ?? null,
-        })),
-      })),
-    })) ?? [];
+    const affectedPackages = (response.affected ?? []).map(normalizeOsvPackage);
 
     return affectedPackages.length > 0 ? affectedPackages : null;
   }
@@ -227,7 +401,7 @@ export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | nu
       error: errorMessage,
       ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
     };
-    logger.error('osv.fetch_failed', meta);
+    logger.warn('osv.fetch_failed', meta);
     return null;
   }
 }

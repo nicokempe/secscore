@@ -19,6 +19,11 @@ export const ENRICH_CACHE_MAX_ENTRIES = 2000;
 export const FETCH_TIMEOUT_MS = 5000;
 
 /**
+ * Default User-Agent header sent to upstream APIs during enrichment.
+ */
+export const UPSTREAM_USER_AGENT = 'secscore-poc/1';
+
+/**
  * Relative path to the asymmetric Laplace parameter JSON file bundled with the service.
  */
 export const AL_PARAMS_FILE = 'model-params/al-params.json';
@@ -29,14 +34,9 @@ export const AL_PARAMS_FILE = 'model-params/al-params.json';
 export const E_MIN_V31 = 0.91;
 
 /**
- * CVSS v3.1 Exploit Code Maturity maximum factor ("High"/"Not Defined").
+ * Maximum Exploit Code Maturity factor applied when time-aware modelling reaches saturation.
  */
-export const E_MAX_V31 = 1.0;
-
-/**
- * Weight applied to the asymmetric Laplace exploit probability when computing the SecScore temporal uplift.
- */
-export const EXPLOITPROB_WEIGHT = 0.35;
+export const E_MAX = 1.0;
 
 /**
  * Maximum additive score bonus granted when public proof-of-concept exploits are available.

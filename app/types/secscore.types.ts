@@ -25,6 +25,13 @@ export interface OsvAffectedPackage {
   ranges: OsvVersionRange[]
 }
 
+export interface CvssTemporalMultipliers {
+  /** Temporal multiplier derived from Remediation Level (defaults to 1.0 when undefined). */
+  remediationLevel: number | null
+  /** Temporal multiplier derived from Report Confidence (defaults to 1.0 when undefined). */
+  reportConfidence: number | null
+}
+
 /**
  * Canonical CVE metadata merged from public sources (primarily NVD; OSV optional).
  */
@@ -39,6 +46,10 @@ export interface CveMetadata {
   cvssBase: number | null
   /** CVSS vector string (e.g., "CVSS:3.1/AV:N/..."), else null. */
   cvssVector: string | null
+  /** Parsed CVSS version (e.g., "3.1", "4.0"), else null. */
+  cvssVersion: string | null
+  /** Temporal multipliers extracted from CVSS metadata when available. */
+  temporalMultipliers: CvssTemporalMultipliers
   /** Raw CPE strings when present; an empty array if unavailable. */
   cpe: string[]
   /** Model version associated with derived metadata fields. */

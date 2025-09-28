@@ -4,6 +4,7 @@ export interface NvdDescription {
 }
 
 export interface NvdCvssData {
+  version?: string
   baseScore?: number
   vectorString?: string
   score?: number
@@ -11,6 +12,10 @@ export interface NvdCvssData {
 
 export interface NvdCvssMetric {
   cvssData?: NvdCvssData
+  temporalScore?: number
+  exploitCodeMaturity?: string
+  remediationLevel?: string
+  reportConfidence?: string
   baseMetrics?: { baseScore?: number, score?: number, vectorString?: string }
 }
 

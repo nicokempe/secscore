@@ -71,17 +71,21 @@ export default defineEventHandler(async (event) => {
     const publishedDate = metadata.publishedDate ? Date.parse(metadata.publishedDate) : Number.NaN;
     const now = Date.now();
     const tWeeks = Number.isFinite(publishedDate) ? Math.max(0, (now - publishedDate) / (1000 * 60 * 60 * 24 * 7)) : 0;
-    const exploitProbRaw = asymmetricLaplaceCdf(tWeeks, modelParams.mu, modelParams.lambda, modelParams.kappa);
-    const exploitProb = Math.round(exploitProbRaw * 1000) / 1000;
+    const exploitProb = asymmetricLaplaceCdf(tWeeks, modelParams.mu, modelParams.lambda, modelParams.kappa);
     const hasExploit = exploits.length > 0;
 
-    const secscore = computeSecScore({
+    const secscoreComputation = computeSecScore({
       cvssBase: metadata.cvssBase,
+      cvssVector: metadata.cvssVector,
+      cvssVersion: metadata.cvssVersion,
       exploitProb,
       kev,
       hasExploit,
       epss,
+      temporalMultipliers: metadata.temporalMultipliers,
     });
+
+    const secscore = secscoreComputation.secscore;
 
     const response: SecScoreResponse = {
       cveId,
@@ -106,6 +110,8 @@ export default defineEventHandler(async (event) => {
         tWeeks,
         cvssBase: metadata.cvssBase,
         secscore,
+        temporalKernel: secscoreComputation.temporalKernel,
+        temporalExploitMaturity: secscoreComputation.exploitMaturity,
       }),
       computedAt: new Date().toISOString(),
       modelVersion: MODEL_VERSION,
