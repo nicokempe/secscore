@@ -20,27 +20,27 @@ import {
 } from '~~/server/lib/kev-index';
 import type { KevCompactFile, KevMetaValue, KevRefreshResult, KevRuntimeMetadata, KevStatus } from '~/types/kev.types';
 
-const cacheFilePath: string = resolve(process.cwd(), KEV_COMPACT_PATH);
-const fallbackFilePath: string = resolve(process.cwd(), KEV_FALLBACK_PATH);
-let bootstrapPromise: Promise<void> | null = null;
-let initialRefreshTriggered: boolean = false;
+const kevCacheFilePath: string = resolve(process.cwd(), KEV_COMPACT_PATH);
+const kevFallbackFilePath: string = resolve(process.cwd(), KEV_FALLBACK_PATH);
+let kevBootstrapPromise: Promise<void> | null = null;
+let hasTriggeredInitialRefresh: boolean = false;
 
 async function bootstrapKevRuntime(): Promise<void> {
-  await ensureCacheDirectory();
-  await hydrateFromLocalSources();
+  await ensureKevCacheDirectory();
+  await hydrateKevFromLocalSources();
 }
 
 function scheduleInitialRefresh(): void {
-  if (initialRefreshTriggered) {
+  if (hasTriggeredInitialRefresh) {
     return;
   }
-  initialRefreshTriggered = true;
+  hasTriggeredInitialRefresh = true;
   void refreshKevFromRemote();
 }
 
-async function ensureCacheDirectory(): Promise<void> {
+async function ensureKevCacheDirectory(): Promise<void> {
   try {
-    await mkdir(dirname(cacheFilePath), { recursive: true });
+    await mkdir(dirname(kevCacheFilePath), { recursive: true });
   }
   catch (error) {
     const logger = useLogger();
@@ -51,20 +51,20 @@ async function ensureCacheDirectory(): Promise<void> {
   }
 }
 
-async function hydrateFromLocalSources(): Promise<void> {
+async function hydrateKevFromLocalSources(): Promise<void> {
   const logger = useLogger();
-  let source: 'cache' | 'fallback' | 'empty' = 'empty';
-  let compact = loadCompactFromDisk(cacheFilePath);
-  if (compact) {
-    source = 'cache';
+  let hydrationSource: 'cache' | 'fallback' | 'empty' = 'empty';
+  let cachedCompactFile = loadCompactFromDisk(kevCacheFilePath);
+  if (cachedCompactFile) {
+    hydrationSource = 'cache';
   }
-  if (!compact) {
-    const fallback = loadCompactFromDisk(fallbackFilePath);
-    if (fallback) {
-      compact = fallback;
-      source = 'fallback';
+  if (!cachedCompactFile) {
+    const fallbackCompactFile = loadCompactFromDisk(kevFallbackFilePath);
+    if (fallbackCompactFile) {
+      cachedCompactFile = fallbackCompactFile;
+      hydrationSource = 'fallback';
       try {
-        await saveCompactToDisk(cacheFilePath, compact);
+        await saveCompactToDisk(kevCacheFilePath, cachedCompactFile);
       }
       catch (error) {
         const errorMessage: string = error instanceof Error ? error.message : String(error);
@@ -75,25 +75,25 @@ async function hydrateFromLocalSources(): Promise<void> {
     }
   }
 
-  if (compact) {
-    hydrateRuntime(compact);
+  if (cachedCompactFile) {
+    hydrateRuntime(cachedCompactFile);
     logger.info('kev.bootstrap', {
-      source,
-      count: compact.items.length,
-      updatedAt: compact.updatedAt,
+      source: hydrationSource,
+      count: cachedCompactFile.items.length,
+      updatedAt: cachedCompactFile.updatedAt,
     });
     return;
   }
 
-  const empty: KevCompactFile = {
+  const emptyCompactFile: KevCompactFile = {
     updatedAt: new Date().toISOString(),
     items: [],
   };
-  hydrateRuntime(empty);
-  logger.warn('kev.bootstrap_missing', { source });
+  hydrateRuntime(emptyCompactFile);
+  logger.warn('kev.bootstrap_missing', { source: hydrationSource });
 }
 
-function buildRequestHeaders(): Headers {
+function buildKevRequestHeaders(): Headers {
   const headers = new Headers({
     'User-Agent': USER_AGENT,
     'Accept': 'application/json',
@@ -108,7 +108,7 @@ function buildRequestHeaders(): Headers {
   return headers;
 }
 
-function responseHeadersToCompact(base: KevCompactFile, response: Response): KevCompactFile {
+function applyResponseHeadersToCompactFile(base: KevCompactFile, response: Response): KevCompactFile {
   const etag = response.headers.get('etag') ?? undefined;
   const lastModified = response.headers.get('last-modified') ?? undefined;
   return {
@@ -118,14 +118,14 @@ function responseHeadersToCompact(base: KevCompactFile, response: Response): Kev
   };
 }
 
-async function fetchWithTimeout(input: string, headers: Headers): Promise<Response> {
+async function fetchKevWithTimeout(requestUrl: string, requestHeaders: Headers): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout((): void => {
     controller.abort();
   }, KEV_FETCH_TIMEOUT_MS);
   try {
-    const response: Response = await fetch(input, {
-      headers,
+    const response: Response = await fetch(requestUrl, {
+      headers: requestHeaders,
       signal: controller.signal,
     });
     return response;
@@ -154,56 +154,56 @@ export function getKevStatus(): KevStatus {
 }
 
 export async function ensureKevInitialized(): Promise<void> {
-  if (!bootstrapPromise) {
-    bootstrapPromise = bootstrapKevRuntime().catch((error): void => {
-      bootstrapPromise = null;
+  if (!kevBootstrapPromise) {
+    kevBootstrapPromise = bootstrapKevRuntime().catch((error): void => {
+      kevBootstrapPromise = null;
       throw error;
     });
   }
-  await bootstrapPromise;
+  await kevBootstrapPromise;
 }
 
 export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
   const logger = useLogger();
   try {
-    const headers: Headers = buildRequestHeaders();
-    const response: Response = await fetchWithTimeout(KEV_FEED_URL, headers);
-    if (response.status === 304) {
-      const metadata: KevRuntimeMetadata = getRuntimeMetadata();
+    const requestHeaders: Headers = buildKevRequestHeaders();
+    const kevResponse: Response = await fetchKevWithTimeout(KEV_FEED_URL, requestHeaders);
+    if (kevResponse.status === 304) {
+      const runtimeMetadata: KevRuntimeMetadata = getRuntimeMetadata();
       logger.info('kev.refresh', {
         changed: false,
-        status: response.status,
+        status: kevResponse.status,
         count: getKevSet().size,
       });
-      const updatedAt: string = metadata.updatedAt ?? new Date().toISOString();
+      const updatedAt: string = runtimeMetadata.updatedAt ?? new Date().toISOString();
       return { changed: false, count: getKevSet().size, updatedAt };
     }
-    if (!response.ok) {
-      throw new Error(`Unexpected response: ${response.status}`);
+    if (!kevResponse.ok) {
+      throw new Error(`Unexpected response: ${kevResponse.status}`);
     }
-    const payload = (await response.json()) as unknown;
-    const compact: KevCompactFile = responseHeadersToCompact(buildCompactFromFull(payload), response);
-    const next: KevCompactFile = {
-      ...compact,
+    const kevPayload = (await kevResponse.json()) as unknown;
+    const baseCompactFile: KevCompactFile = applyResponseHeadersToCompactFile(buildCompactFromFull(kevPayload), kevResponse);
+    const updatedCompactFile: KevCompactFile = {
+      ...baseCompactFile,
       updatedAt: new Date().toISOString(),
     };
-    await saveCompactToDisk(cacheFilePath, next);
-    hydrateRuntime(next);
+    await saveCompactToDisk(kevCacheFilePath, updatedCompactFile);
+    hydrateRuntime(updatedCompactFile);
     logger.info('kev.refresh', {
       changed: true,
-      status: response.status,
-      count: next.items.length,
-      updatedAt: next.updatedAt,
+      status: kevResponse.status,
+      count: updatedCompactFile.items.length,
+      updatedAt: updatedCompactFile.updatedAt,
     });
-    return { changed: true, count: next.items.length, updatedAt: next.updatedAt };
+    return { changed: true, count: updatedCompactFile.items.length, updatedAt: updatedCompactFile.updatedAt };
   }
   catch (error) {
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     logger.warn('kev.refresh_failed', {
       error: errorMessage,
     });
-    const metadata = getRuntimeMetadata();
-    const updatedAt = metadata.updatedAt ?? new Date().toISOString();
+    const runtimeMetadata = getRuntimeMetadata();
+    const updatedAt = runtimeMetadata.updatedAt ?? new Date().toISOString();
     return { changed: false, count: getKevSet().size, updatedAt };
   }
 }

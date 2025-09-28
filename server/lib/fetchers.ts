@@ -60,12 +60,12 @@ async function delay(ms: number): Promise<void> {
   return new Promise(resolveDelay => setTimeout(resolveDelay, ms));
 }
 
-async function withRetries<T>(fn: () => Promise<T>, retries = RETRY_ATTEMPTS): Promise<T> {
+async function withRetries<T>(operation: () => Promise<T>, retries = RETRY_ATTEMPTS): Promise<T> {
   let attempt = 0;
   let lastError: unknown;
   while (attempt <= retries) {
     try {
-      return await fn();
+      return await operation();
     }
     catch (error) {
       lastError = error;
@@ -88,13 +88,13 @@ function normalizeHeaders(headers?: FetchOptions['headers']): FetchOptions['head
     return headers.concat(Object.entries(COMMON_HEADERS));
   }
   if (headers instanceof Headers) {
-    const merged = new Headers(headers);
+    const mergedHeaders = new Headers(headers);
     for (const [key, value] of Object.entries(COMMON_HEADERS)) {
-      if (!merged.has(key)) {
-        merged.set(key, value);
+      if (!mergedHeaders.has(key)) {
+        mergedHeaders.set(key, value);
       }
     }
-    return merged;
+    return mergedHeaders;
   }
   return { ...COMMON_HEADERS, ...headers };
 }
@@ -218,13 +218,14 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
   };
 
   try {
-    const response = await fetchJson<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
+    const nvdResponse = await fetchJson<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
       method: 'GET',
       query: { cveId },
     });
 
-    const vulnerability = response.vulnerabilities?.find(item => item.cve?.id === cveId) ?? response.vulnerabilities?.[0];
-    if (!vulnerability?.cve) {
+    const matchingVulnerability = nvdResponse.vulnerabilities?.find(item => item.cve?.id === cveId)
+      ?? nvdResponse.vulnerabilities?.[0];
+    if (!matchingVulnerability?.cve) {
       const notFoundError: HttpErrorLike = {
         statusCode: 404,
         message: `CVE ${cveId} not found in NVD`,
@@ -232,39 +233,41 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       throw notFoundError;
     }
 
-    const cve: NvdCve = vulnerability.cve;
-    const publishedDate = typeof cve.published === 'string' ? cve.published : null;
-    const description = cve.descriptions?.find(entry => entry.lang === 'en')?.value ?? cve.descriptions?.[0]?.value ?? null;
+    const nvdCve: NvdCve = matchingVulnerability.cve;
+    const publishedDate = typeof nvdCve.published === 'string' ? nvdCve.published : null;
+    const description = nvdCve.descriptions?.find(entry => entry.lang === 'en')?.value
+      ?? nvdCve.descriptions?.[0]?.value
+      ?? null;
 
-    const selected = selectCvssMetric(cve);
+    const selectedCvssMetric = selectCvssMetric(nvdCve);
 
-    const cpeSet: Set<string> = new Set<string>();
-    const collectCpe = (nodes?: NvdConfigurationNode[]): void => {
+    const cpeMatches: Set<string> = new Set<string>();
+    const collectCpeFromNodes = (nodes?: NvdConfigurationNode[]): void => {
       if (!nodes) {
         return;
       }
       for (const node of nodes) {
         for (const match of node.cpeMatch ?? []) {
           if (typeof match.criteria === 'string') {
-            cpeSet.add(match.criteria);
+            cpeMatches.add(match.criteria);
           }
         }
         if (node.children) {
-          collectCpe(node.children);
+          collectCpeFromNodes(node.children);
         }
       }
     };
-    collectCpe(cve.configurations?.nodes);
+    collectCpeFromNodes(nvdCve.configurations?.nodes);
 
     return {
       cveId,
       publishedDate,
       description,
-      cvssBase: selected.baseScore,
-      cvssVector: selected.vector,
-      cvssVersion: selected.version ?? null,
-      temporalMultipliers: selected.multipliers,
-      cpe: Array.from(cpeSet),
+      cvssBase: selectedCvssMetric.baseScore,
+      cvssVector: selectedCvssMetric.vector,
+      cvssVersion: selectedCvssMetric.version ?? null,
+      temporalMultipliers: selectedCvssMetric.multipliers,
+      cpe: Array.from(cpeMatches),
       modelVersion: '1',
     };
   }
@@ -275,12 +278,12 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
 
     const logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
-    const meta = {
+    const logMetadata = {
       cveId,
       error: errorMessage,
       ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
     };
-    logger.warn('nvd.fetch_failed', meta);
+    logger.warn('nvd.fetch_failed', logMetadata);
     return defaultMetadata;
   }
 }
@@ -290,18 +293,18 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
  */
 export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
   try {
-    const response = await fetchJson<{ data?: Array<{ cve?: string, epss?: string, percentile?: string }> }>('https://api.first.org/data/v1/epss', {
+    const epssResponse = await fetchJson<{ data?: Array<{ cve?: string, epss?: string, percentile?: string }> }>('https://api.first.org/data/v1/epss', {
       method: 'GET',
       query: { cve: cveId },
     });
 
-    const record = response.data?.find(entry => entry.cve === cveId);
-    if (!record || record.epss === undefined || record.percentile === undefined) {
+    const matchingRecord = epssResponse.data?.find(entry => entry.cve === cveId);
+    if (!matchingRecord || matchingRecord.epss === undefined || matchingRecord.percentile === undefined) {
       return null;
     }
 
-    const score: number = Number.parseFloat(record.epss);
-    const percentile: number = Number.parseFloat(record.percentile);
+    const score: number = Number.parseFloat(matchingRecord.epss);
+    const percentile: number = Number.parseFloat(matchingRecord.percentile);
     if (Number.isNaN(score) || Number.isNaN(percentile)) {
       return null;
     }
@@ -328,10 +331,10 @@ function loadExploitDbIndex(): void {
     return;
   }
   try {
-    const filePath: string = resolve(process.cwd(), 'server/data/exploitdb-index.json');
-    const fileContents: string = readFileSync(filePath, 'utf8');
-    const parsed: ExploitDbRecord[] = JSON.parse(fileContents) as ExploitDbRecord[];
-    exploitDbRecords = parsed.filter(record => typeof record.cveId === 'string');
+    const exploitIndexPath: string = resolve(process.cwd(), 'server/data/exploitdb-index.json');
+    const exploitIndexContents: string = readFileSync(exploitIndexPath, 'utf8');
+    const exploitDbPayload: ExploitDbRecord[] = JSON.parse(exploitIndexContents) as ExploitDbRecord[];
+    exploitDbRecords = exploitDbPayload.filter(record => typeof record.cveId === 'string');
   }
   catch (error) {
     const logger = useLogger();
@@ -348,9 +351,9 @@ function loadExploitDbIndex(): void {
  */
 export function lookupExploitDb(cveId: string): ExploitEvidence[] {
   loadExploitDbIndex();
-  const target = cveId.toUpperCase();
-  const matches = (exploitDbRecords ?? []).filter(record => record.cveId?.toUpperCase() === target);
-  return matches.map<ExploitEvidence>(record => ({
+  const normalizedCveId = cveId.toUpperCase();
+  const matchingRecords = (exploitDbRecords ?? []).filter(record => record.cveId?.toUpperCase() === normalizedCveId);
+  return matchingRecords.map<ExploitEvidence>(record => ({
     source: 'exploitdb',
     url: record.url ?? null,
     publishedDate: record.publishedDate ?? null,
@@ -395,13 +398,13 @@ function normalizeOsvPackage(entry: OsvAffected): OsvAffectedPackage {
  */
 export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | null> {
   try {
-    const response = await fetchJson<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
+    const osvResponse = await fetchJson<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
       method: 'GET',
     });
 
-    const affectedPackages = (response.affected ?? []).map(normalizeOsvPackage);
+    const normalizedPackages = (osvResponse.affected ?? []).map(normalizeOsvPackage);
 
-    return affectedPackages.length > 0 ? affectedPackages : null;
+    return normalizedPackages.length > 0 ? normalizedPackages : null;
   }
   catch (error) {
     if (isHttpErrorLike(error) && error.statusCode === 404) {
@@ -410,12 +413,12 @@ export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | nu
 
     const logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
-    const meta = {
+    const logMetadata = {
       cveId,
       error: errorMessage,
       ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
     };
-    logger.warn('osv.fetch_failed', meta);
+    logger.warn('osv.fetch_failed', logMetadata);
     return null;
   }
 }

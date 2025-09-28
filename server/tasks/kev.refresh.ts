@@ -6,8 +6,8 @@ export default defineTask({
     name: 'kev:refresh',
     description: 'Refresh the CISA Known Exploited Vulnerabilities cache',
   },
-  async run(event) {
-    void event;
+  async run(taskContext) {
+    void taskContext;
     await ensureKevInitialized();
     const result = await refreshKevFromRemote();
     return { result };

@@ -15,11 +15,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function clamp01(value: number): number {
+function clampBetweenZeroAndOne(value: number): number {
   return clamp(value, 0, 1);
 }
 
-function safeExp(exponent: number): number {
+function computeBoundedExponential(exponent: number): number {
   if (exponent <= -EXPONENT_BOUND) {
     return 0;
   }
@@ -29,31 +29,31 @@ function safeExp(exponent: number): number {
   return Math.exp(exponent);
 }
 
-function roundToTenth(value: number): number {
+function roundToNearestTenth(value: number): number {
   return Math.round((value + Number.EPSILON) * 10) / 10;
 }
 
-function tryComputeEminFromCvssV4(vector: string | null): number | null {
+function inferMinimumExploitabilityFromCvssV4(vector: string | null): number | null {
   if (!vector || !vector.startsWith('CVSS:4.0/')) {
     return null;
   }
-  const eHigh = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
-  const eUnproven = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
-  if (eHigh === null || eUnproven === null || eHigh <= 0) {
+  const maturityHigh = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
+  const maturityUnproven = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
+  if (maturityHigh === null || maturityUnproven === null || maturityHigh <= 0) {
     return null;
   }
-  return clamp01(eUnproven / eHigh);
+  return clampBetweenZeroAndOne(maturityUnproven / maturityHigh);
 }
 
-function resolveTemporalMultiplier(value: number | null | undefined): number {
+function resolveTemporalMultiplierOrDefault(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 1;
 }
 
-function normalizeExploitProb(probability: number): number {
+function normalizeExploitProbability(probability: number): number {
   if (!Number.isFinite(probability)) {
     return 0;
   }
-  return clamp01(probability);
+  return clampBetweenZeroAndOne(probability);
 }
 
 /**
@@ -64,63 +64,63 @@ export function inferCategory(cpeList: string[]): string {
     return 'default';
   }
 
-  const lowered = cpeList.map(cpe => cpe.toLowerCase());
-  const includes = (needle: string): boolean => lowered.some(entry => entry.includes(needle));
+  const normalizedCpeEntries = cpeList.map(cpe => cpe.toLowerCase());
+  const cpeIncludesNeedle = (needle: string): boolean => normalizedCpeEntries.some(entry => entry.includes(needle));
 
   // 1. PHP-centric stacks and CMS ecosystems.
-  if (includes('php')) {
+  if (cpeIncludesNeedle('php')) {
     return 'php';
   }
-  if (lowered.some(entry => entry.includes('wordpress') || entry.includes('joomla'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('wordpress') || entry.includes('joomla'))) {
     return 'webapps';
   }
 
   // 2. Microsoft Windows platforms.
-  if (lowered.some(entry => entry.includes('microsoft') || entry.includes('windows'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('microsoft') || entry.includes('windows'))) {
     return 'windows';
   }
 
   // 3. Linux kernels and distributions.
-  if (lowered.some(entry => entry.includes('linux') || entry.includes('kernel'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('linux') || entry.includes('kernel'))) {
     return 'linux';
   }
 
   // 4. Mobile and desktop operating systems.
-  if (lowered.some(entry => entry.includes('android') || entry.includes('google:android'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('android') || entry.includes('google:android'))) {
     return 'android';
   }
-  if (lowered.some(entry => entry.includes('apple:iphone_os') || entry.includes('ios'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('apple:iphone_os') || entry.includes('ios'))) {
     return 'ios';
   }
-  if (lowered.some(entry => entry.includes('apple:mac_os_x') || entry.includes('macos'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('apple:mac_os_x') || entry.includes('macos'))) {
     return 'macos';
   }
 
   // 5. Language/runtime specific ecosystems.
-  if (lowered.some(entry => entry.includes('oracle:java') || entry.includes(':java') || entry.includes('openjdk') || entry.includes('jdk'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('oracle:java') || entry.includes(':java') || entry.includes('openjdk') || entry.includes('jdk'))) {
     return 'java';
   }
 
   // 6. Explicit DoS indicators.
-  if (lowered.some(entry => entry.includes('denial_of_service') || entry.includes(':dos') || entry.includes('/dos'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('denial_of_service') || entry.includes(':dos') || entry.includes('/dos'))) {
     return 'dos';
   }
 
   // 7. ASP.NET applications.
-  if (lowered.some(entry => entry.includes('asp.net') || entry.includes('aspnet'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('asp.net') || entry.includes('aspnet'))) {
     return 'asp';
   }
 
   // 8. Hardware and firmware indicators.
-  if (lowered.some(entry => entry.includes(':h:') || entry.includes('firmware') || entry.includes('hardware'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes(':h:') || entry.includes('firmware') || entry.includes('hardware'))) {
     return 'hardware';
   }
 
   // 9. Explicit remote/local hints fall back to coarse categories.
-  if (lowered.some(entry => entry.includes('remote'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('remote'))) {
     return 'remote';
   }
-  if (lowered.some(entry => entry.includes('local'))) {
+  if (normalizedCpeEntries.some(entry => entry.includes('local'))) {
     return 'local';
   }
 
@@ -130,22 +130,22 @@ export function inferCategory(cpeList: string[]): string {
 /**
  * Computes the asymmetric Laplace cumulative distribution function for the provided parameters.
  */
-export function asymmetricLaplaceCdf(tWeeks: number, mu: number, lambda: number, kappa: number): number {
-  if (!Number.isFinite(tWeeks) || !Number.isFinite(mu) || !Number.isFinite(lambda) || !Number.isFinite(kappa)) {
+export function asymmetricLaplaceCdf(weeksSincePublication: number, mu: number, lambda: number, kappa: number): number {
+  if (!Number.isFinite(weeksSincePublication) || !Number.isFinite(mu) || !Number.isFinite(lambda) || !Number.isFinite(kappa)) {
     return 0;
   }
 
-  const clampedWeeks = Math.max(0, tWeeks);
+  const nonNegativeWeeks = Math.max(0, weeksSincePublication);
 
-  if (clampedWeeks <= mu) {
-    const exponent = (lambda / kappa) * (clampedWeeks - mu);
-    const value = (kappa ** 2 / (1 + kappa ** 2)) * safeExp(exponent);
-    return clamp01(value);
+  if (nonNegativeWeeks <= mu) {
+    const exponent = (lambda / kappa) * (nonNegativeWeeks - mu);
+    const cdfValue = (kappa ** 2 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
+    return clampBetweenZeroAndOne(cdfValue);
   }
 
-  const exponent = -lambda * kappa * (clampedWeeks - mu);
-  const value = 1 - (1 / (1 + kappa ** 2)) * safeExp(exponent);
-  return clamp01(value);
+  const exponent = -lambda * kappa * (nonNegativeWeeks - mu);
+  const cdfValue = 1 - (1 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
+  return clampBetweenZeroAndOne(cdfValue);
 }
 
 export interface ComputeSecScoreArgs {
@@ -169,103 +169,107 @@ export interface ComputeSecScoreResult {
 /**
  * Combines CVSS base score, temporal multipliers, exploit probability, KEV status, exploit evidence, and EPSS to compute the SecScore.
  */
-export function computeSecScore(args: ComputeSecScoreArgs): ComputeSecScoreResult {
-  const baseScore = typeof args.cvssBase === 'number' && Number.isFinite(args.cvssBase) ? args.cvssBase : BASE_DEFAULT;
-  const remediationMultiplier = resolveTemporalMultiplier(args.temporalMultipliers?.remediationLevel ?? null);
-  const reportConfidenceMultiplier = resolveTemporalMultiplier(args.temporalMultipliers?.reportConfidence ?? null);
-  const temporalKernel = roundToTenth(baseScore * remediationMultiplier * reportConfidenceMultiplier);
+export function computeSecScore(scoreInput: ComputeSecScoreArgs): ComputeSecScoreResult {
+  const baseScore = typeof scoreInput.cvssBase === 'number' && Number.isFinite(scoreInput.cvssBase)
+    ? scoreInput.cvssBase
+    : BASE_DEFAULT;
+  const remediationMultiplier = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.remediationLevel ?? null);
+  const reportConfidenceMultiplier = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.reportConfidence ?? null);
+  const temporalKernel = roundToNearestTenth(baseScore * remediationMultiplier * reportConfidenceMultiplier);
 
-  const exploitProb = normalizeExploitProb(args.exploitProb);
-  const eMin = args.cvssVersion?.startsWith('4')
-    ? tryComputeEminFromCvssV4(args.cvssVector)
+  const normalizedExploitProbability = normalizeExploitProbability(scoreInput.exploitProb);
+  const minimumExploitability = scoreInput.cvssVersion?.startsWith('4')
+    ? inferMinimumExploitabilityFromCvssV4(scoreInput.cvssVector)
     : null;
-  const effectiveEmin = typeof eMin === 'number' ? clamp01(eMin) : E_MIN_V31;
-  const exploitMaturity = effectiveEmin + (E_MAX - effectiveEmin) * exploitProb;
+  const effectiveMinimumExploitability = typeof minimumExploitability === 'number'
+    ? clampBetweenZeroAndOne(minimumExploitability)
+    : E_MIN_V31;
+  const exploitMaturity = effectiveMinimumExploitability + (E_MAX - effectiveMinimumExploitability) * normalizedExploitProbability;
 
-  let coreScore = temporalKernel * exploitMaturity;
-  if (args.epss) {
-    coreScore += EPSS_BLEND_WEIGHT * args.epss.score;
+  let intermediateScore = temporalKernel * exploitMaturity;
+  if (scoreInput.epss) {
+    intermediateScore += EPSS_BLEND_WEIGHT * scoreInput.epss.score;
   }
-  if (args.hasExploit) {
-    coreScore += POC_BONUS_MAX;
+  if (scoreInput.hasExploit) {
+    intermediateScore += POC_BONUS_MAX;
   }
-  if (args.kev && coreScore < KEV_MIN_FLOOR) {
-    coreScore = KEV_MIN_FLOOR;
+  if (scoreInput.kev && intermediateScore < KEV_MIN_FLOOR) {
+    intermediateScore = KEV_MIN_FLOOR;
   }
 
-  const finalScore = roundToTenth(clamp(coreScore, 0, 10));
+  const normalizedFinalScore = roundToNearestTenth(clamp(intermediateScore, 0, 10));
   return {
-    secscore: finalScore,
+    secscore: normalizedFinalScore,
     temporalKernel,
     exploitMaturity,
-    eMin: effectiveEmin,
+    eMin: effectiveMinimumExploitability,
   };
 }
 
 /**
  * Builds human-readable explanation bullets summarizing why a CVE received a particular SecScore.
  */
-export function buildExplanation(params: ExplanationParams & { temporalKernel: number, temporalExploitMaturity: number }): Array<{ title: string, detail: string, source: string }> {
-  const explanation: Array<{ title: string, detail: string, source: string }> = [];
+export function buildExplanation(explanationParams: ExplanationParams & { temporalKernel: number, temporalExploitMaturity: number }): Array<{ title: string, detail: string, source: string }> {
+  const explanationEntries: Array<{ title: string, detail: string, source: string }> = [];
 
-  explanation.push({
+  explanationEntries.push({
     title: 'Temporal model',
     detail:
-      `category=${params.modelCategory}, mu=${params.modelParams.mu.toFixed(2)}, lambda=${params.modelParams.lambda.toFixed(2)}, `
-      + `kappa=${params.modelParams.kappa.toFixed(2)}, tWeeks=${params.tWeeks.toFixed(2)}, `
-      + `exploitProb=${params.exploitProb.toFixed(3)}, E_S(t)=${params.temporalExploitMaturity.toFixed(3)}, `
-      + `K=${params.temporalKernel.toFixed(1)}`,
+      `category=${explanationParams.modelCategory}, mu=${explanationParams.modelParams.mu.toFixed(2)}, lambda=${explanationParams.modelParams.lambda.toFixed(2)}, `
+      + `kappa=${explanationParams.modelParams.kappa.toFixed(2)}, tWeeks=${explanationParams.tWeeks.toFixed(2)}, `
+      + `exploitProb=${explanationParams.exploitProb.toFixed(3)}, E_S(t)=${explanationParams.temporalExploitMaturity.toFixed(3)}, `
+      + `K=${explanationParams.temporalKernel.toFixed(1)}`,
     source: 'secscore',
   });
 
-  if (params.kev) {
-    explanation.push({
+  if (explanationParams.kev) {
+    explanationEntries.push({
       title: 'CISA KEV',
       detail: `Applied KEV floor to ≥ ${KEV_MIN_FLOOR.toFixed(1)} after temporal kernel`,
       source: 'cisa-kev',
     });
   }
 
-  const exploit = params.exploits[0];
-  if (exploit) {
-    const dateText = exploit.publishedDate ? ` (published ${exploit.publishedDate.split('T')[0]})` : '';
-    explanation.push({
+  const primaryExploitEvidence = explanationParams.exploits[0];
+  if (primaryExploitEvidence) {
+    const dateText = primaryExploitEvidence.publishedDate ? ` (published ${primaryExploitEvidence.publishedDate.split('T')[0]})` : '';
+    explanationEntries.push({
       title: 'Exploit PoC',
       detail: `Added +${POC_BONUS_MAX.toFixed(1)} after temporal kernel from ExploitDB${dateText}`,
       source: 'exploitdb',
     });
   }
 
-  if (params.epss) {
-    const percentile = Math.round(params.epss.percentile * 100);
-    const bonus = EPSS_BLEND_WEIGHT * params.epss.score;
-    explanation.push({
+  if (explanationParams.epss) {
+    const epssPercentile = Math.round(explanationParams.epss.percentile * 100);
+    const epssBonus = EPSS_BLEND_WEIGHT * explanationParams.epss.score;
+    explanationEntries.push({
       title: 'EPSS',
-      detail: `Added +${bonus.toFixed(2)} (EPSS=${params.epss.score.toFixed(3)}, p${percentile}) after temporal kernel`,
+      detail: `Added +${epssBonus.toFixed(2)} (EPSS=${explanationParams.epss.score.toFixed(3)}, p${epssPercentile}) after temporal kernel`,
       source: 'epss',
     });
   }
 
-  if (typeof params.cvssBase === 'number') {
-    explanation.push({
+  if (typeof explanationParams.cvssBase === 'number') {
+    explanationEntries.push({
       title: 'CVSS Base',
-      detail: `CVSS base score ${params.cvssBase.toFixed(1)} used for kernel`,
+      detail: `CVSS base score ${explanationParams.cvssBase.toFixed(1)} used for kernel`,
       source: 'cvss',
     });
   }
   else {
-    explanation.push({
+    explanationEntries.push({
       title: 'CVSS Missing',
       detail: 'CVSS base score unavailable; kernel defaults to 0',
       source: 'cvss',
     });
   }
 
-  explanation.push({
+  explanationEntries.push({
     title: 'SecScore',
-    detail: `Final SecScore ${params.secscore.toFixed(1)}`,
+    detail: `Final SecScore ${explanationParams.secscore.toFixed(1)}`,
     source: 'secscore',
   });
 
-  return explanation;
+  return explanationEntries;
 }
