@@ -276,6 +276,45 @@
           </div>
         </div>
 
+        <!-- Packages Affected (OSV) -->
+        <div
+          v-if="(currentData.osv?.length ?? 0) > 0"
+          class="mb-8"
+        >
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Packages Affected
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="(pkg, index) in currentData.osv"
+              :key="`${pkg.ecosystem ?? 'unknown'}-${pkg.package ?? index}`"
+              class="p-4 rounded-lg border border-white/10 bg-white/5"
+            >
+              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+                {{ pkg.ecosystem || 'Unknown ecosystem' }}
+              </p>
+              <p class="text-neutral-100 font-medium mb-2">
+                {{ pkg.package || 'Unknown package' }}
+              </p>
+              <ul class="space-y-1">
+                <li
+                  v-for="(range, rangeIdx) in pkg.ranges"
+                  :key="rangeIdx"
+                  class="text-neutral-300 text-sm"
+                >
+                  {{ formatOsvRange(range) }}
+                </li>
+                <li
+                  v-if="!pkg.ranges || pkg.ranges.length === 0"
+                  class="text-neutral-500 text-sm"
+                >
+                  Version details unavailable
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <!-- Signals -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold text-neutral-100 mb-4">
@@ -470,7 +509,7 @@
 
 <script setup lang="ts">
 import { BoltIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, FireIcon, MagnifyingGlassCircleIcon, PlusIcon, ShieldCheckIcon } from '@heroicons/vue/20/solid';
-import type { SecScoreResponse } from '~/types/secscore.types';
+import type { OsvRangeEvent, OsvVersionRange, SecScoreResponse } from '~/types/secscore.types';
 
 const cveInput = ref('');
 const inputError = ref('');
@@ -691,6 +730,66 @@ const resolveErrorMessage = (error: unknown): string => {
   }
 
   return 'Failed to analyze the CVE. Please try again later.';
+};
+
+const MAX_OSV_RANGE_LENGTH = 72;
+
+const truncateText = (value: string, maxLength = MAX_OSV_RANGE_LENGTH): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+};
+
+const formatOsvEvent = (event: OsvRangeEvent): string | null => {
+  const fragments: string[] = [];
+
+  if (event.introduced) {
+    fragments.push(`>= ${event.introduced}`);
+  }
+
+  if (event.fixed) {
+    fragments.push(`< ${event.fixed}`);
+  }
+
+  if (event.lastAffected) {
+    fragments.push(`<= ${event.lastAffected}`);
+  }
+
+  if (event.limit) {
+    fragments.push(event.limit);
+  }
+
+  if (fragments.length === 0) {
+    return null;
+  }
+
+  return fragments.join(' / ');
+};
+
+const formatOsvRange = (range: OsvVersionRange): string => {
+  const parts: string[] = [];
+
+  if (range.type) {
+    parts.push(range.type);
+  }
+
+  const eventDescriptions = (range.events ?? [])
+    .map((event) => {
+      return formatOsvEvent(event);
+    })
+    .filter((value): value is string => {
+      return Boolean(value);
+    });
+
+  if (eventDescriptions.length > 0) {
+    parts.push(eventDescriptions.join('; '));
+  }
+
+  const text = parts.join(' • ') || 'Version range unavailable';
+
+  return truncateText(text);
 };
 
 onBeforeUnmount(() => {
