@@ -2,6 +2,9 @@ import { defineNitroPlugin, runTask } from 'nitropack/runtime';
 import type { NitroApp } from 'nitropack/types';
 import { KEV_REFRESH_INTERVAL_HOURS } from '~~/server/lib/constants';
 
+/**
+ * Resolves the scheduler interval in hours, honoring environment overrides when valid.
+ */
 function parseIntervalHours(): number {
   const override = process.env.KEV_REFRESH_INTERVAL_HOURS;
   if (!override) {

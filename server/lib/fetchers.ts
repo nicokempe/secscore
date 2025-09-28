@@ -7,7 +7,7 @@ import type { CvssTemporalMultipliers, CveMetadata, EpssSignal, ExploitEvidence,
 import type {
   ExploitDbRecord,
   HttpErrorLike,
-  NvdConfigurationNode,
+  NvdConfigurationNode, NvdCpeMatch,
   NvdCve,
   NvdCvssMetric,
   NvdResponse,
@@ -16,6 +16,7 @@ import type {
   OsvRange,
   OsvResponse,
 } from '~/types/fetchers.types';
+import type { Logger } from '~/types/logger.types';
 
 const RETRY_ATTEMPTS = 2;
 const RETRY_DELAY_MIN_MS = 200;
@@ -45,6 +46,12 @@ const CVSS_V3_RC_TEXT: Record<string, number> = {
 
 let exploitDbRecords: ExploitDbRecord[] | null = null;
 
+/**
+ * Narrows thrown values to the `HttpErrorLike` shape used across fetch helpers.
+ *
+ * @param value - Unknown error candidate emitted by upstream libraries.
+ * @returns `true` when the value exposes numeric `statusCode` and string `message` fields.
+ */
 function isHttpErrorLike(value: unknown): value is HttpErrorLike {
   return (
     typeof value === 'object'
@@ -56,10 +63,22 @@ function isHttpErrorLike(value: unknown): value is HttpErrorLike {
   );
 }
 
+/**
+ * Provides a Promise-based delay helper to support retry backoff scheduling.
+ *
+ * @param ms - Duration in milliseconds to wait before resolving.
+ */
 async function delay(ms: number): Promise<void> {
   return new Promise(resolveDelay => setTimeout(resolveDelay, ms));
 }
 
+/**
+ * Executes an asynchronous operation with bounded retries and jittered delays.
+ *
+ * @param operation - Function producing the Promise to evaluate.
+ * @param retries - Maximum retry attempts before surfacing the latest error.
+ * @returns Resolves with the operation result or rejects after exhausting retries.
+ */
 async function withRetries<T>(operation: () => Promise<T>, retries = RETRY_ATTEMPTS): Promise<T> {
   let attempt = 0;
   let lastError: unknown;
@@ -80,6 +99,12 @@ async function withRetries<T>(operation: () => Promise<T>, retries = RETRY_ATTEM
   throw lastError;
 }
 
+/**
+ * Ensures outgoing requests always include the service's standard headers.
+ *
+ * @param headers - Optional caller-supplied headers in any supported shape.
+ * @returns A merged header collection containing upstream requirements.
+ */
 function normalizeHeaders(headers?: FetchOptions['headers']): FetchOptions['headers'] {
   if (!headers) {
     return COMMON_HEADERS;
@@ -99,6 +124,12 @@ function normalizeHeaders(headers?: FetchOptions['headers']): FetchOptions['head
   return { ...COMMON_HEADERS, ...headers };
 }
 
+/**
+ * Maps CVSS remediation level codes or text labels to temporal multipliers.
+ *
+ * @param value - Raw CVSS remediation level string from NVD payloads.
+ * @returns Matching multiplier or `null` when the value cannot be resolved.
+ */
 function remediationMultiplierFromValue(value: string | undefined): number | null {
   if (!value) {
     return null;
@@ -107,6 +138,12 @@ function remediationMultiplierFromValue(value: string | undefined): number | nul
   return CVSS_V3_RL_CODES[normalized] ?? CVSS_V3_RL_TEXT[normalized] ?? null;
 }
 
+/**
+ * Maps CVSS report confidence codes or text labels to temporal multipliers.
+ *
+ * @param value - Raw CVSS report confidence string from NVD payloads.
+ * @returns Matching multiplier or `null` when the value cannot be resolved.
+ */
 function reportConfidenceMultiplierFromValue(value: string | undefined): number | null {
   if (!value) {
     return null;
@@ -115,6 +152,12 @@ function reportConfidenceMultiplierFromValue(value: string | undefined): number 
   return CVSS_V3_RC_CODES[normalized] ?? CVSS_V3_RC_TEXT[normalized] ?? null;
 }
 
+/**
+ * Extracts the CVSS version from NVD metrics regardless of schema variant.
+ *
+ * @param cvssData - Metrics object that may include a `version` field.
+ * @returns Parsed version string or `null` when unavailable.
+ */
 function extractCvssVersion(
   cvssData: NvdCvssMetric['cvssData'] | NvdCvssMetric['baseMetrics'] | undefined,
 ): string | null {
@@ -128,15 +171,21 @@ function extractCvssVersion(
   return null;
 }
 
+/**
+ * Splits CVSS vector strings into their version prefix and component metrics.
+ *
+ * @param vector - CVSS vector string (e.g., `CVSS:3.1/AV:N/...`).
+ * @returns Object containing the detected version and a key/value metric map.
+ */
 function parseCvssVector(vector: string | null): { version: string | null, metrics: Record<string, string> } {
   if (!vector) {
     return { version: null, metrics: {} };
   }
-  const parts = vector.split('/');
+  const parts: string[] = vector.split('/');
   const prefix = parts.shift();
   let version: string | null = null;
   if (prefix?.startsWith('CVSS:')) {
-    const segments = prefix.split(':');
+    const segments: string[] = prefix.split(':');
     version = segments[1] ?? null;
   }
   const metrics: Record<string, string> = {};
@@ -149,6 +198,13 @@ function parseCvssVector(vector: string | null): { version: string | null, metri
   return { version, metrics };
 }
 
+/**
+ * Resolves temporal multiplier values from CVSS metric data and vector strings.
+ *
+ * @param metric - Preferred metric entry retrieved from NVD.
+ * @param vector - Raw CVSS vector string associated with the CVE.
+ * @returns Temporal multiplier record with remediation and confidence weights.
+ */
 function deriveTemporalMultipliers(metric: NvdCvssMetric | undefined, vector: string | null): CvssTemporalMultipliers {
   const { metrics } = parseCvssVector(vector);
   const remediation = remediationMultiplierFromValue(metric?.remediationLevel)
@@ -161,6 +217,12 @@ function deriveTemporalMultipliers(metric: NvdCvssMetric | undefined, vector: st
   };
 }
 
+/**
+ * Picks the most relevant CVSS metric set from the mixed NVD response formats.
+ *
+ * @param cve - NVD vulnerability object containing multiple metric families.
+ * @returns Selected metric data plus derived metadata for downstream use.
+ */
 function selectCvssMetric(cve: NvdCve): {
   metric: NvdCvssMetric | undefined
   vector: string | null
@@ -179,7 +241,7 @@ function selectCvssMetric(cve: NvdCve): {
   const parsed = parseCvssVector(vectorString);
   const baseScoreCandidate = cvssData?.baseScore ?? cvssData?.score ?? null;
   const baseScore = typeof baseScoreCandidate === 'number' ? baseScoreCandidate : null;
-  const multipliers = deriveTemporalMultipliers(metric, vectorString);
+  const multipliers: CvssTemporalMultipliers = deriveTemporalMultipliers(metric, vectorString);
   const version = extractCvssVersion(cvssData);
 
   return {
@@ -191,6 +253,13 @@ function selectCvssMetric(cve: NvdCve): {
   };
 }
 
+/**
+ * Performs HTTP JSON requests with standardized headers, timeout, and retry logic.
+ *
+ * @param url - Absolute URL of the upstream API endpoint.
+ * @param options - Fetch options forwarded to `ofetch`.
+ * @returns Parsed JSON payload typed by the caller.
+ */
 async function fetchJson<T>(url: string, options: FetchOptions<'json'>): Promise<T> {
   const mergedHeaders = normalizeHeaders(options.headers);
   return withRetries(() => $fetch<T>(url, {
@@ -218,7 +287,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
   };
 
   try {
-    const nvdResponse = await fetchJson<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
+    const nvdResponse: NvdResponse = await fetchJson<NvdResponse>('https://services.nvd.nist.gov/rest/json/cves/2.0', {
       method: 'GET',
       query: { cveId },
     });
@@ -276,7 +345,7 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       throw error;
     }
 
-    const logger = useLogger();
+    const logger: Logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     const logMetadata = {
       cveId,
@@ -316,7 +385,7 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
     };
   }
   catch (error) {
-    const logger = useLogger();
+    const logger: Logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     logger.warn('epss.fetch_failed', {
       cveId,
@@ -326,6 +395,11 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
   }
 }
 
+/**
+ * Lazily loads and caches the bundled ExploitDB index from disk.
+ *
+ * The parsed records are filtered to ensure each entry exposes a CVE identifier.
+ */
 function loadExploitDbIndex(): void {
   if (exploitDbRecords) {
     return;
@@ -337,7 +411,7 @@ function loadExploitDbIndex(): void {
     exploitDbRecords = exploitDbPayload.filter(record => typeof record.cveId === 'string');
   }
   catch (error) {
-    const logger = useLogger();
+    const logger: Logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     logger.warn('exploitdb.index_load_failed', {
       error: errorMessage,
@@ -351,8 +425,8 @@ function loadExploitDbIndex(): void {
  */
 export function lookupExploitDb(cveId: string): ExploitEvidence[] {
   loadExploitDbIndex();
-  const normalizedCveId = cveId.toUpperCase();
-  const matchingRecords = (exploitDbRecords ?? []).filter(record => record.cveId?.toUpperCase() === normalizedCveId);
+  const normalizedCveId: string = cveId.toUpperCase();
+  const matchingRecords: ExploitDbRecord[] = (exploitDbRecords ?? []).filter(record => record.cveId?.toUpperCase() === normalizedCveId);
   return matchingRecords.map<ExploitEvidence>(record => ({
     source: 'exploitdb',
     url: record.url ?? null,
@@ -360,6 +434,11 @@ export function lookupExploitDb(cveId: string): ExploitEvidence[] {
   }));
 }
 
+/**
+ * Converts an OSV event record into a normalized nullable-field structure.
+ *
+ * @param event - Raw OSV event describing introduction, fixes, or range limits.
+ */
 function normalizeOsvEvent(event: OsvEvent): { introduced: string | null, fixed: string | null, lastAffected: string | null, limit: string | null } {
   return {
     introduced: event.introduced ?? null,
@@ -369,6 +448,11 @@ function normalizeOsvEvent(event: OsvEvent): { introduced: string | null, fixed:
   };
 }
 
+/**
+ * Normalizes OSV version range blocks for consistent downstream rendering.
+ *
+ * @param range - OSV range entry containing a type and associated events.
+ */
 function normalizeOsvRange(range: OsvRange): { type: string | null, events: Array<{ introduced: string | null, fixed: string | null, lastAffected: string | null, limit: string | null }> } {
   return {
     type: range.type ?? null,
@@ -376,6 +460,11 @@ function normalizeOsvRange(range: OsvRange): { type: string | null, events: Arra
   };
 }
 
+/**
+ * Reshapes OSV affected package entries into the response contract expected by the API.
+ *
+ * @param entry - Raw affected package record returned by OSV.
+ */
 function normalizeOsvPackage(entry: OsvAffected): OsvAffectedPackage {
   const ranges = (entry.ranges ?? []).map(normalizeOsvRange);
   return {
@@ -398,11 +487,11 @@ function normalizeOsvPackage(entry: OsvAffected): OsvAffectedPackage {
  */
 export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | null> {
   try {
-    const osvResponse = await fetchJson<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
+    const osvResponse: OsvResponse = await fetchJson<OsvResponse>(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cveId)}`, {
       method: 'GET',
     });
 
-    const normalizedPackages = (osvResponse.affected ?? []).map(normalizeOsvPackage);
+    const normalizedPackages: OsvAffectedPackage[] = (osvResponse.affected ?? []).map(normalizeOsvPackage);
 
     return normalizedPackages.length > 0 ? normalizedPackages : null;
   }
@@ -411,7 +500,7 @@ export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | nu
       return null;
     }
 
-    const logger = useLogger();
+    const logger: Logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     const logMetadata = {
       cveId,

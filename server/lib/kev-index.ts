@@ -15,18 +15,27 @@ let currentEtag: string | undefined;
 let currentLastModified: string | undefined;
 let currentUpdatedAt: string | undefined;
 
+/**
+ * Guards against primitives when parsing KEV payloads sourced from disk or network.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Normalizes optional string fields by trimming whitespace and removing empties.
+ */
 function toStringOrUndefined(value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
-  const trimmed = value.trim();
+  const trimmed: string = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+/**
+ * Validates and converts arbitrary objects into KEV compact entries.
+ */
 function normalizeCompactEntry(value: unknown): KevCompactEntry | null {
   if (!isRecord(value)) {
     return null;
@@ -51,10 +60,13 @@ function normalizeCompactEntry(value: unknown): KevCompactEntry | null {
   return entry;
 }
 
+/**
+ * Converts the verbose KEV JSON feed into compact entries while deduplicating CVEs.
+ */
 function normalizeFromVulnerabilities(payload: KevFullFile): KevCompactEntry[] {
   const raw = Array.isArray(payload.vulnerabilities) ? payload.vulnerabilities : [];
   const items: KevCompactEntry[] = [];
-  const seen = new Set<string>();
+  const seen: Set<string> = new Set<string>();
   for (const candidate of raw) {
     const entry = normalizeCompactEntry(candidate);
     if (!entry) {
@@ -69,11 +81,14 @@ function normalizeFromVulnerabilities(payload: KevFullFile): KevCompactEntry[] {
   return items;
 }
 
+/**
+ * Sanitizes cached compact files to guarantee the expected schema.
+ */
 function normalizeFromCompact(payload: KevCompactCandidate): KevCompactFile {
-  const updatedAt = toStringOrUndefined(payload.updatedAt) ?? new Date().toISOString();
+  const updatedAt: string = toStringOrUndefined(payload.updatedAt) ?? new Date().toISOString();
   const itemsRaw = Array.isArray(payload.items) ? payload.items : [];
   const items: KevCompactEntry[] = [];
-  const seen = new Set<string>();
+  const seen: Set<string> = new Set<string>();
   for (const candidate of itemsRaw) {
     const entry = normalizeCompactEntry(candidate);
     if (!entry || seen.has(entry.cveId)) {
@@ -90,12 +105,15 @@ function normalizeFromCompact(payload: KevCompactCandidate): KevCompactFile {
   };
 }
 
+/**
+ * Produces the service's compact KEV format from either upstream or cached payloads.
+ */
 export function buildCompactFromFull(payload: unknown): KevCompactFile {
   if (isRecord(payload) && 'items' in payload) {
     return normalizeFromCompact(payload as KevCompactCandidate);
   }
   if (isRecord(payload) && 'vulnerabilities' in payload) {
-    const items = normalizeFromVulnerabilities(payload as KevFullFile);
+    const items: KevCompactEntry[] = normalizeFromVulnerabilities(payload as KevFullFile);
     return {
       updatedAt: new Date().toISOString(),
       items,
@@ -104,6 +122,9 @@ export function buildCompactFromFull(payload: unknown): KevCompactFile {
   throw new Error('Invalid KEV payload');
 }
 
+/**
+ * Updates in-memory caches used by request handlers with the latest KEV dataset.
+ */
 export function hydrateRuntime(compact: KevCompactFile): void {
   kevSet.clear();
   kevMeta.clear();
@@ -120,14 +141,23 @@ export function hydrateRuntime(compact: KevCompactFile): void {
   currentUpdatedAt = compact.updatedAt;
 }
 
+/**
+ * Exposes the cached CVE identifiers in the KEV dataset.
+ */
 export function getKevSet(): ReadonlySet<string> {
   return kevSet;
 }
 
+/**
+ * Provides read-only access to metadata associated with each KEV CVE entry.
+ */
 export function getKevMetaMap(): ReadonlyMap<string, KevMetaValue> {
   return kevMeta;
 }
 
+/**
+ * Returns HTTP caching metadata retained from the last KEV refresh.
+ */
 export function getRuntimeMetadata(): KevRuntimeMetadata {
   return {
     etag: currentEtag,
@@ -136,9 +166,12 @@ export function getRuntimeMetadata(): KevRuntimeMetadata {
   };
 }
 
+/**
+ * Loads a compact KEV file from disk, coercing the payload into the normalized schema.
+ */
 export function loadCompactFromDisk(path: string): KevCompactFile | null {
   try {
-    const fileContents = readFileSync(path, 'utf8');
+    const fileContents: string = readFileSync(path, 'utf8');
     const parsed = JSON.parse(fileContents) as unknown;
     return buildCompactFromFull(parsed);
   }
@@ -147,7 +180,10 @@ export function loadCompactFromDisk(path: string): KevCompactFile | null {
   }
 }
 
+/**
+ * Persists the compact KEV dataset to disk with stable formatting.
+ */
 export async function saveCompactToDisk(path: string, compact: KevCompactFile): Promise<void> {
-  const serialized = JSON.stringify(compact, null, 2);
+  const serialized: string = JSON.stringify(compact, null, 2);
   await writeFile(path, `${serialized}\n`, 'utf8');
 }

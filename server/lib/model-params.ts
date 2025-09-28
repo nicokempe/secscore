@@ -28,8 +28,8 @@ let paramsCache: ModelParameters | null = null;
 export async function readModelParams(category: string): Promise<{ mu: number, lambda: number, kappa: number }> {
   if (!paramsCache) {
     try {
-      const filePath = resolve(process.cwd(), AL_PARAMS_FILE);
-      const contents = await readFile(filePath, 'utf8');
+      const filePath: string = resolve(process.cwd(), AL_PARAMS_FILE);
+      const contents: string = await readFile(filePath, 'utf8');
       paramsCache = JSON.parse(contents) as ModelParameters;
     }
     catch {

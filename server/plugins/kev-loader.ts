@@ -19,17 +19,24 @@ import {
   saveCompactToDisk,
 } from '~~/server/lib/kev-index';
 import type { KevCompactFile, KevMetaValue, KevRefreshResult, KevRuntimeMetadata, KevStatus } from '~/types/kev.types';
+import type { Logger } from '~/types/logger.types';
 
 const kevCacheFilePath: string = resolve(process.cwd(), KEV_COMPACT_PATH);
 const kevFallbackFilePath: string = resolve(process.cwd(), KEV_FALLBACK_PATH);
 let kevBootstrapPromise: Promise<void> | null = null;
 let hasTriggeredInitialRefresh: boolean = false;
 
+/**
+ * Bootstraps the in-memory KEV runtime from cache/fallback sources.
+ */
 async function bootstrapKevRuntime(): Promise<void> {
   await ensureKevCacheDirectory();
   await hydrateKevFromLocalSources();
 }
 
+/**
+ * Defers the first KEV refresh until the initial request to avoid wasted work in cold starts.
+ */
 function scheduleInitialRefresh(): void {
   if (hasTriggeredInitialRefresh) {
     return;
@@ -38,12 +45,15 @@ function scheduleInitialRefresh(): void {
   void refreshKevFromRemote();
 }
 
+/**
+ * Creates the on-disk directory used to persist the compact KEV cache file.
+ */
 async function ensureKevCacheDirectory(): Promise<void> {
   try {
     await mkdir(dirname(kevCacheFilePath), { recursive: true });
   }
   catch (error) {
-    const logger = useLogger();
+    const logger: Logger = useLogger();
     const errorMessage: string = error instanceof Error ? error.message : String(error);
     logger.warn('kev.cache_dir_failed', {
       error: errorMessage,
@@ -51,8 +61,11 @@ async function ensureKevCacheDirectory(): Promise<void> {
   }
 }
 
+/**
+ * Attempts to hydrate the runtime cache from disk (cache or fallback), or initializes an empty dataset.
+ */
 async function hydrateKevFromLocalSources(): Promise<void> {
-  const logger = useLogger();
+  const logger: Logger = useLogger();
   let hydrationSource: 'cache' | 'fallback' | 'empty' = 'empty';
   let cachedCompactFile = loadCompactFromDisk(kevCacheFilePath);
   if (cachedCompactFile) {
@@ -93,8 +106,11 @@ async function hydrateKevFromLocalSources(): Promise<void> {
   logger.warn('kev.bootstrap_missing', { source: hydrationSource });
 }
 
+/**
+ * Builds request headers for the KEV feed, including conditional request metadata.
+ */
 function buildKevRequestHeaders(): Headers {
-  const headers = new Headers({
+  const headers: Headers = new Headers({
     'User-Agent': USER_AGENT,
     'Accept': 'application/json',
   });
@@ -108,6 +124,9 @@ function buildKevRequestHeaders(): Headers {
   return headers;
 }
 
+/**
+ * Merges caching headers from an upstream response into the compact KEV file structure.
+ */
 function applyResponseHeadersToCompactFile(base: KevCompactFile, response: Response): KevCompactFile {
   const etag = response.headers.get('etag') ?? undefined;
   const lastModified = response.headers.get('last-modified') ?? undefined;
@@ -118,6 +137,9 @@ function applyResponseHeadersToCompactFile(base: KevCompactFile, response: Respo
   };
 }
 
+/**
+ * Performs a fetch with an explicit timeout using `AbortController` for hard cancellations.
+ */
 async function fetchKevWithTimeout(requestUrl: string, requestHeaders: Headers): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout((): void => {
@@ -135,14 +157,23 @@ async function fetchKevWithTimeout(requestUrl: string, requestHeaders: Headers):
   }
 }
 
+/**
+ * Determines whether a CVE identifier is currently listed in CISA KEV.
+ */
 export function isInKev(cveId: string): boolean {
   return getKevSet().has(cveId);
 }
 
+/**
+ * Retrieves cached metadata for a specific KEV entry, if available.
+ */
 export function getKevMeta(cveId: string): KevMetaValue | undefined {
   return getKevMetaMap().get(cveId);
 }
 
+/**
+ * Provides dataset-wide KEV status information for response headers or diagnostics.
+ */
 export function getKevStatus(): KevStatus {
   const metadata: KevRuntimeMetadata = getRuntimeMetadata();
   return {
@@ -153,6 +184,9 @@ export function getKevStatus(): KevStatus {
   };
 }
 
+/**
+ * Ensures KEV data has been hydrated before responding to a request.
+ */
 export async function ensureKevInitialized(): Promise<void> {
   if (!kevBootstrapPromise) {
     kevBootstrapPromise = bootstrapKevRuntime().catch((error): void => {
@@ -163,8 +197,11 @@ export async function ensureKevInitialized(): Promise<void> {
   await kevBootstrapPromise;
 }
 
+/**
+ * Fetches the latest KEV dataset, updating caches and persisting to disk.
+ */
 export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
-  const logger = useLogger();
+  const logger: Logger = useLogger();
   try {
     const requestHeaders: Headers = buildKevRequestHeaders();
     const kevResponse: Response = await fetchKevWithTimeout(KEV_FEED_URL, requestHeaders);
@@ -202,8 +239,8 @@ export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
     logger.warn('kev.refresh_failed', {
       error: errorMessage,
     });
-    const runtimeMetadata = getRuntimeMetadata();
-    const updatedAt = runtimeMetadata.updatedAt ?? new Date().toISOString();
+    const runtimeMetadata: KevRuntimeMetadata = getRuntimeMetadata();
+    const updatedAt: string = runtimeMetadata.updatedAt ?? new Date().toISOString();
     return { changed: false, count: getKevSet().size, updatedAt };
   }
 }

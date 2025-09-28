@@ -26,7 +26,7 @@ export function lruGet<T>(key: string): T | null {
  * Stores a value in the cache with the provided TTL (in milliseconds), evicting the oldest entry when capacity is exceeded.
  */
 export function lruSet<T>(key: string, value: T, ttlMs: number): void {
-  const expiresAt = Date.now() + ttlMs;
+  const expiresAt: number = Date.now() + ttlMs;
   cacheStore.set(key, { value, expiresAt });
 
   if (cacheStore.size > ENRICH_CACHE_MAX_ENTRIES) {

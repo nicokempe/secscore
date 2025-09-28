@@ -1,9 +1,9 @@
 import { E_MAX, E_MIN_V31, EPSS_BLEND_WEIGHT, KEV_MIN_FLOOR, POC_BONUS_MAX } from '~~/server/lib/constants';
-import type { CvssTemporalMultipliers, EpssSignal } from '~/types/secscore.types';
+import type { CvssTemporalMultipliers, EpssSignal, ExploitEvidence } from '~/types/secscore.types';
 import type { ExplanationParams } from '~/types/secscore-engine.types';
 
-const BASE_DEFAULT = 0;
-const EXPONENT_BOUND = 50;
+const BASE_DEFAULT: number = 0;
+const EXPONENT_BOUND: number = 50;
 const CVSS_V4_EXPLOIT_MATURITY: Record<string, number> = {
   A: 1.0,
   X: 1.0,
@@ -11,14 +11,30 @@ const CVSS_V4_EXPLOIT_MATURITY: Record<string, number> = {
   U: 0.9,
 };
 
+/**
+ * Restricts a numeric value to a closed interval.
+ *
+ * @param value - Candidate number to clamp.
+ * @param min - Lower inclusive bound.
+ * @param max - Upper inclusive bound.
+ */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * Convenience wrapper ensuring values remain within the probability domain `[0, 1]`.
+ */
 function clampBetweenZeroAndOne(value: number): number {
   return clamp(value, 0, 1);
 }
 
+/**
+ * Computes `e^x` while preventing overflow/underflow by enforcing exponent bounds.
+ *
+ * @param exponent - Exponent to evaluate.
+ * @returns Exponential result constrained to a safe numeric range.
+ */
 function computeBoundedExponential(exponent: number): number {
   if (exponent <= -EXPONENT_BOUND) {
     return 0;
@@ -29,26 +45,41 @@ function computeBoundedExponential(exponent: number): number {
   return Math.exp(exponent);
 }
 
+/**
+ * Rounds a floating point number to one decimal place using half-away-from-zero semantics.
+ */
 function roundToNearestTenth(value: number): number {
   return Math.round((value + Number.EPSILON) * 10) / 10;
 }
 
+/**
+ * Derives a minimum exploitability floor from CVSS v4 vectors when available.
+ *
+ * @param vector - Optional CVSS vector string.
+ * @returns Ratio of unproven to high exploit maturity or `null` when unavailable.
+ */
 function inferMinimumExploitabilityFromCvssV4(vector: string | null): number | null {
   if (!vector || !vector.startsWith('CVSS:4.0/')) {
     return null;
   }
-  const maturityHigh = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
-  const maturityUnproven = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
+  const maturityHigh: number = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
+  const maturityUnproven: number = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
   if (maturityHigh === null || maturityUnproven === null || maturityHigh <= 0) {
     return null;
   }
   return clampBetweenZeroAndOne(maturityUnproven / maturityHigh);
 }
 
+/**
+ * Returns numeric temporal multipliers while defaulting to neutral values.
+ */
 function resolveTemporalMultiplierOrDefault(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 1;
 }
 
+/**
+ * Safely normalizes exploit probability estimates to the `[0, 1]` interval.
+ */
 function normalizeExploitProbability(probability: number): number {
   if (!Number.isFinite(probability)) {
     return 0;
@@ -135,16 +166,16 @@ export function asymmetricLaplaceCdf(weeksSincePublication: number, mu: number, 
     return 0;
   }
 
-  const nonNegativeWeeks = Math.max(0, weeksSincePublication);
+  const nonNegativeWeeks: number = Math.max(0, weeksSincePublication);
 
   if (nonNegativeWeeks <= mu) {
-    const exponent = (lambda / kappa) * (nonNegativeWeeks - mu);
-    const cdfValue = (kappa ** 2 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
+    const exponent: number = (lambda / kappa) * (nonNegativeWeeks - mu);
+    const cdfValue: number = (kappa ** 2 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
     return clampBetweenZeroAndOne(cdfValue);
   }
 
-  const exponent = -lambda * kappa * (nonNegativeWeeks - mu);
-  const cdfValue = 1 - (1 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
+  const exponent: number = -lambda * kappa * (nonNegativeWeeks - mu);
+  const cdfValue: number = 1 - (1 / (1 + kappa ** 2)) * computeBoundedExponential(exponent);
   return clampBetweenZeroAndOne(cdfValue);
 }
 
@@ -170,23 +201,23 @@ export interface ComputeSecScoreResult {
  * Combines CVSS base score, temporal multipliers, exploit probability, KEV status, exploit evidence, and EPSS to compute the SecScore.
  */
 export function computeSecScore(scoreInput: ComputeSecScoreArgs): ComputeSecScoreResult {
-  const baseScore = typeof scoreInput.cvssBase === 'number' && Number.isFinite(scoreInput.cvssBase)
+  const baseScore: number = typeof scoreInput.cvssBase === 'number' && Number.isFinite(scoreInput.cvssBase)
     ? scoreInput.cvssBase
     : BASE_DEFAULT;
-  const remediationMultiplier = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.remediationLevel ?? null);
-  const reportConfidenceMultiplier = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.reportConfidence ?? null);
-  const temporalKernel = roundToNearestTenth(baseScore * remediationMultiplier * reportConfidenceMultiplier);
+  const remediationMultiplier: number = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.remediationLevel ?? null);
+  const reportConfidenceMultiplier: number = resolveTemporalMultiplierOrDefault(scoreInput.temporalMultipliers?.reportConfidence ?? null);
+  const temporalKernel: number = roundToNearestTenth(baseScore * remediationMultiplier * reportConfidenceMultiplier);
 
-  const normalizedExploitProbability = normalizeExploitProbability(scoreInput.exploitProb);
+  const normalizedExploitProbability: number = normalizeExploitProbability(scoreInput.exploitProb);
   const minimumExploitability = scoreInput.cvssVersion?.startsWith('4')
     ? inferMinimumExploitabilityFromCvssV4(scoreInput.cvssVector)
     : null;
-  const effectiveMinimumExploitability = typeof minimumExploitability === 'number'
+  const effectiveMinimumExploitability: number = typeof minimumExploitability === 'number'
     ? clampBetweenZeroAndOne(minimumExploitability)
     : E_MIN_V31;
-  const exploitMaturity = effectiveMinimumExploitability + (E_MAX - effectiveMinimumExploitability) * normalizedExploitProbability;
+  const exploitMaturity: number = effectiveMinimumExploitability + (E_MAX - effectiveMinimumExploitability) * normalizedExploitProbability;
 
-  let intermediateScore = temporalKernel * exploitMaturity;
+  let intermediateScore: number = temporalKernel * exploitMaturity;
   if (scoreInput.epss) {
     intermediateScore += EPSS_BLEND_WEIGHT * scoreInput.epss.score;
   }
@@ -230,9 +261,9 @@ export function buildExplanation(explanationParams: ExplanationParams & { tempor
     });
   }
 
-  const primaryExploitEvidence = explanationParams.exploits[0];
+  const primaryExploitEvidence: ExploitEvidence = explanationParams.exploits[0];
   if (primaryExploitEvidence) {
-    const dateText = primaryExploitEvidence.publishedDate ? ` (published ${primaryExploitEvidence.publishedDate.split('T')[0]})` : '';
+    const dateText: string = primaryExploitEvidence.publishedDate ? ` (published ${primaryExploitEvidence.publishedDate.split('T')[0]})` : '';
     explanationEntries.push({
       title: 'Exploit PoC',
       detail: `Added +${POC_BONUS_MAX.toFixed(1)} after temporal kernel from ExploitDB${dateText}`,
@@ -241,8 +272,8 @@ export function buildExplanation(explanationParams: ExplanationParams & { tempor
   }
 
   if (explanationParams.epss) {
-    const epssPercentile = Math.round(explanationParams.epss.percentile * 100);
-    const epssBonus = EPSS_BLEND_WEIGHT * explanationParams.epss.score;
+    const epssPercentile: number = Math.round(explanationParams.epss.percentile * 100);
+    const epssBonus: number = EPSS_BLEND_WEIGHT * explanationParams.epss.score;
     explanationEntries.push({
       title: 'EPSS',
       detail: `Added +${epssBonus.toFixed(2)} (EPSS=${explanationParams.epss.score.toFixed(3)}, p${epssPercentile}) after temporal kernel`,
