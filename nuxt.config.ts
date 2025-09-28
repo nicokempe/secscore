@@ -41,6 +41,11 @@ export default defineNuxtConfig({
         siteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY ?? '',
         enabled: Boolean(process.env.CLOUDFLARE_TURNSTILE_SITE_KEY),
       },
+      logging: {
+        logLevel: process.env.LOG_LEVEL || 'info',
+        remoteLoggingEnabled: process.env.LOG_REMOTE_ENABLED === 'true',
+        remoteLogServerUrl: process.env.LOG_SERVER_URL || 'https://logs.dashio.net/api/logs',
+      },
     },
   },
   routeRules: {
