@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createError, defineEventHandler, getRouterParam, setResponseHeader } from 'h3';
+import { createError, defineEventHandler, getHeader, getRouterParam, setResponseHeader } from 'h3';
 import { isValidCve } from '~/utils/validators';
 import { CACHE_TTL_MS } from '~~/server/lib/constants';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
@@ -18,12 +18,30 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'X-Request-Id', requestId);
   setResponseHeader(event, 'SecScore-Model-Version', MODEL_VERSION);
   try {
-    const cveId = getRouterParam(event, 'cveId') ?? '';
+    const cveId: string = getRouterParam(event, 'cveId') ?? '';
     if (!isValidCve(cveId)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid CVE identifier' });
     }
 
-    const cacheKey = `enrich:${cveId}`;
+    const runtimeConfig = useRuntimeConfig(event);
+    const shouldVerifyTurnstile: boolean = Boolean(runtimeConfig.turnstile?.enabled && runtimeConfig.turnstile.secretKey);
+    if (shouldVerifyTurnstile) {
+      const token = getHeader(event, 'cf-turnstile-response');
+      if (!token) {
+        throw createError({ statusCode: 400, statusMessage: 'Turnstile verification required' });
+      }
+
+      const verification = await verifyTurnstileToken(token, event);
+      if (!verification.success) {
+        throw createError({
+          statusCode: 403,
+          statusMessage: 'Turnstile verification failed',
+          data: { errors: verification['error-codes'] ?? [] },
+        });
+      }
+    }
+
+    const cacheKey: string = `enrich:${cveId}`;
     const cached = lruGet<SecScoreResponse>(cacheKey);
     if (cached) {
       const payload = cached.modelVersion === MODEL_VERSION ? cached : { ...cached, modelVersion: MODEL_VERSION };

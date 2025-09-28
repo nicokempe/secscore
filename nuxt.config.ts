@@ -31,6 +31,18 @@ export default defineNuxtConfig({
   css: [
     '~/assets/css/tailwind.css',
   ],
+  runtimeConfig: {
+    turnstile: {
+      secretKey: process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY ?? '',
+      enabled: process.env.NODE_ENV !== 'development' && Boolean(process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY),
+    },
+    public: {
+      turnstile: {
+        siteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY ?? '',
+        enabled: Boolean(process.env.CLOUDFLARE_TURNSTILE_SITE_KEY),
+      },
+    },
+  },
   routeRules: {
     '/api/v1/enrich/cve/**': {
       security: {

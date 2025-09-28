@@ -29,7 +29,7 @@
             </div>
             <button
               type="submit"
-              :disabled="isLoading"
+              :disabled="isLoading || (isTurnstileEnabled && !turnstileToken)"
               class="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-500/60 bg-cyan-500/10 px-6 py-3 text-base font-medium text-cyan-200 transition duration-200 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed h-full"
             >
               <span v-if="!isLoading">Analyze</span>
@@ -41,6 +41,15 @@
                 <span>Analyzing...</span>
               </div>
             </button>
+          </div>
+          <div
+            v-if="isTurnstileEnabled"
+            class="mt-4"
+          >
+            <NuxtTurnstile
+              ref="turnstileRef"
+              v-model="turnstileToken"
+            />
           </div>
           <p
             v-if="inputError"
@@ -521,6 +530,12 @@ const fallbackLoadingMessage = 'Preparing analysis...';
 const loadingMessage = ref(fallbackLoadingMessage);
 const notFound = ref(false);
 
+const runtimeConfig = useRuntimeConfig();
+const isTurnstileEnabled = computed(() => Boolean(runtimeConfig.public?.turnstile?.enabled));
+const turnstileToken = ref('');
+type TurnstileComponentInstance = { reset: () => void };
+const turnstileRef = ref<TurnstileComponentInstance | null>(null);
+
 const LOADING_STEP_INTERVAL = 500;
 const LOADING_COMPLETION_INTERVAL = 120;
 let loadingStepTimer: ReturnType<typeof setInterval> | undefined;
@@ -631,6 +646,11 @@ const analyzeCve = async () => {
     return;
   }
 
+  if (isTurnstileEnabled.value && !turnstileToken.value) {
+    apiError.value = 'Please complete the verification challenge.';
+    return;
+  }
+
   cveInput.value = normalizedCveId;
 
   // Start loading sequence
@@ -644,7 +664,14 @@ const analyzeCve = async () => {
   let shouldDisplayResults = false;
 
   try {
-    const data = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveId)}`);
+    const headers: Record<string, string> = {};
+    if (isTurnstileEnabled.value && turnstileToken.value) {
+      headers['cf-turnstile-response'] = turnstileToken.value;
+    }
+
+    const data = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveId)}`, {
+      headers,
+    });
     secscoreData.value = data;
     shouldDisplayResults = true;
     notFound.value = false;
@@ -666,6 +693,10 @@ const analyzeCve = async () => {
     await completeLoadingProgress(completionMessage);
     isLoading.value = false;
     showResults.value = shouldDisplayResults;
+    if (isTurnstileEnabled.value) {
+      turnstileRef.value?.reset();
+      turnstileToken.value = '';
+    }
   }
 };
 
