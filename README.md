@@ -21,7 +21,8 @@ This project is built with **Nuxt 3 + Nitro** and uses **pnpm** as the package m
 ### Prerequisites
 
 - [Node.js 22+](https://nodejs.org/en/)
-- [pnpm](https://pnpm.io/) installed globally:
+- [pnpm 9+](https://pnpm.io/) installed globally:
+
   ```bash
   corepack enable
   corepack prepare pnpm@latest --activate
