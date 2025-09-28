@@ -53,7 +53,8 @@ export default defineEventHandler(async (event) => {
     const publishedDate = metadata.publishedDate ? Date.parse(metadata.publishedDate) : Number.NaN;
     const now = Date.now();
     const tWeeks = Number.isFinite(publishedDate) ? Math.max(0, (now - publishedDate) / (1000 * 60 * 60 * 24 * 7)) : 0;
-    const exploitProb = asymmetricLaplaceCdf(tWeeks, modelParams.mu, modelParams.lambda, modelParams.kappa);
+    const exploitProbRaw = asymmetricLaplaceCdf(tWeeks, modelParams.mu, modelParams.lambda, modelParams.kappa);
+    const exploitProb = Math.round(exploitProbRaw * 1000) / 1000;
     const hasExploit = exploits.length > 0;
 
     const secscore = computeSecScore({

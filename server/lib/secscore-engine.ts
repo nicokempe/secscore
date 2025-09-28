@@ -3,6 +3,8 @@ import type { EpssSignal } from '~/types/secscore.types';
 import type { ExplanationParams } from '~/types/secscore-engine.types';
 
 const BASE_DEFAULT = 0;
+const EXPONENT_MIN = -745;
+const EXPONENT_MAX = 709;
 
 /**
  * Infers a model category from CPE strings to select the appropriate AL parameter set.
@@ -31,12 +33,16 @@ export function asymmetricLaplaceCdf(tWeeks: number, mu: number, lambda: number,
     return 0;
   }
 
-  if (tWeeks <= mu) {
-    const value = (kappa ** 2 / (1 + kappa ** 2)) * Math.exp((lambda / kappa) * (tWeeks - mu));
+  const clampedWeeks = Math.max(0, tWeeks);
+
+  if (clampedWeeks <= mu) {
+    const exponent = clamp((lambda / kappa) * (clampedWeeks - mu), EXPONENT_MIN, EXPONENT_MAX);
+    const value = (kappa ** 2 / (1 + kappa ** 2)) * Math.exp(exponent);
     return clamp(value, 0, 1);
   }
 
-  const value = 1 - (1 / (1 + kappa ** 2)) * Math.exp(-lambda * kappa * (tWeeks - mu));
+  const exponent = clamp(-lambda * kappa * (clampedWeeks - mu), EXPONENT_MIN, EXPONENT_MAX);
+  const value = 1 - (1 / (1 + kappa ** 2)) * Math.exp(exponent);
   return clamp(value, 0, 1);
 }
 
@@ -61,7 +67,8 @@ export function computeSecScore(args: {
     score = KEV_MIN_FLOOR;
   }
 
-  return Math.round(clamp(score, 0, 10) * 10) / 10;
+  const normalized = clamp(score, 0, 10);
+  return Math.round(normalized * 10) / 10;
 }
 
 /**
@@ -87,7 +94,7 @@ export function buildExplanation(params: ExplanationParams): Array<{ title: stri
 
   explanation.push({
     title: 'Time-aware',
-    detail: `AL-CDF exploitProb=${params.exploitProb.toFixed(2)} at tWeeks=${params.tWeeks.toFixed(1)} for category=${params.modelCategory} (mu=${params.modelParams.mu.toFixed(2)}, lambda=${params.modelParams.lambda.toFixed(2)}, kappa=${params.modelParams.kappa.toFixed(2)})`,
+    detail: `AL-CDF exploitProb=${params.exploitProb.toFixed(3)} at tWeeks=${params.tWeeks.toFixed(1)} for category=${params.modelCategory} (mu=${params.modelParams.mu.toFixed(2)}, lambda=${params.modelParams.lambda.toFixed(2)}, kappa=${params.modelParams.kappa.toFixed(2)})`,
     source: 'secscore',
   });
 
@@ -95,6 +102,13 @@ export function buildExplanation(params: ExplanationParams): Array<{ title: stri
     explanation.push({
       title: 'CVSS Base',
       detail: `CVSS base score ${params.cvssBase.toFixed(1)}`,
+      source: 'cvss',
+    });
+  }
+  else {
+    explanation.push({
+      title: 'CVSS Missing',
+      detail: 'CVSS base score missing',
       source: 'cvss',
     });
   }
