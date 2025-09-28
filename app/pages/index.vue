@@ -227,369 +227,372 @@
                 Common Vulnerability Scoring System - measures severity from 0-10. Higher scores indicate more severe vulnerabilities.
               </p>
             </div>
+          </div>
 
-            <div class="text-center relative group cursor-help">
-              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+              CVSS Version
+            </p>
+            <p class="text-neutral-100 font-medium">
+              {{ resolveCvssVersionLabel(currentData.cvssVector, currentData.cvssVersion) }}
+            </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
                 CVSS Version
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Identifies whether the vulnerability was scored with CVSS v3.x or v4.0.
               </p>
-              <p class="text-neutral-100 font-medium">
-                {{ resolveCvssVersionLabel(currentData.cvssVector, currentData.cvssVersion) }}
+              <p class="text-neutral-500 text-xs break-words">
+                Vector: {{ currentData.cvssVector || 'Not published by NVD.' }}
               </p>
-              <div class="tooltip">
-                <h4 class="font-semibold text-white mb-1">
-                  CVSS Vector
-                </h4>
-                <p class="text-neutral-300 text-sm break-words">
-                  {{ currentData.cvssVector || 'Vector not published by NVD.' }}
-                </p>
-              </div>
             </div>
+          </div>
 
-            <div class="text-center relative group cursor-help">
-              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+              EPSS Score
+            </p>
+            <p class="text-neutral-100 font-medium">
+              {{ (currentData.epss?.score || 0).toFixed(2) }}
+            </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
                 EPSS Score
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Exploit Prediction Scoring System - probability (0-1) that this vulnerability will be exploited in the wild within 30 days.
               </p>
-              <p class="text-neutral-100 font-medium">
-                {{ (currentData.epss?.score || 0).toFixed(2) }}
-              </p>
-              <div class="tooltip">
-                <h4 class="font-semibold text-white mb-1">
-                  EPSS Score
-                </h4>
-                <p class="text-neutral-300 text-sm">
-                  Exploit Prediction Scoring System - probability (0-1) that this vulnerability will be exploited in the wild within 30 days.
-                </p>
-              </div>
             </div>
+          </div>
 
-            <div class="text-center relative group cursor-help">
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+              Exploit Probability
+            </p>
+            <p class="text-neutral-100 font-medium">
+              {{ formatExploitProbability(currentData.exploitProb) }}
+            </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                Time-Adjusted Exploit Odds
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Probability of exploitation estimated by the temporal model based on CVE age and historical behavior for the {{ currentData.modelCategory }} category.
+              </p>
+            </div>
+          </div>
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+              KEV Listed
+            </p>
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.kev ? 'Yes' : 'No' }}
+            </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                KEV Status
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Known Exploited Vulnerabilities - CISA's catalog of vulnerabilities actively exploited by threat actors.
+              </p>
+            </div>
+          </div>
+
+          <div class="text-center relative group cursor-help">
+            <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+              Exploit PoC
+            </p>
+            <p class="text-neutral-100 font-medium">
+              {{ currentData.exploits.length > 0 ? 'Yes' : 'No' }}
+            </p>
+            <div class="tooltip">
+              <h4 class="font-semibold text-white mb-1">
+                Proof of Concept
+              </h4>
+              <p class="text-neutral-300 text-sm">
+                Whether public exploit code or demonstrations are available, making the vulnerability easier to exploit.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Packages Affected (OSV) -->
+        <div
+          v-if="(currentData.osv?.length ?? 0) > 0"
+          class="mb-8"
+        >
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Packages Affected
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="(pkg, index) in currentData.osv"
+              :key="`${pkg.ecosystem ?? 'unknown'}-${pkg.package ?? index}`"
+              class="p-4 rounded-lg border border-white/10 bg-white/5"
+            >
               <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                Exploit Probability
+                {{ pkg.ecosystem || 'Unknown ecosystem' }}
               </p>
-              <p class="text-neutral-100 font-medium">
-                {{ formatExploitProbability(currentData.exploitProb) }}
+              <p class="text-neutral-100 font-medium mb-2">
+                {{ pkg.package || 'Unknown package' }}
               </p>
-              <div class="tooltip">
-                <h4 class="font-semibold text-white mb-1">
-                  Time-Adjusted Exploit Odds
-                </h4>
-                <p class="text-neutral-300 text-sm">
-                  Probability of exploitation estimated by the temporal model based on CVE age and historical behavior for the {{ currentData.modelCategory }} category.
-                </p>
-              </div>
-            </div>
-
-            <div class="text-center relative group cursor-help">
-              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                KEV Listed
-              </p>
-              <p class="text-neutral-100 font-medium">
-                {{ currentData.kev ? 'Yes' : 'No' }}
-              </p>
-              <div class="tooltip">
-                <h4 class="font-semibold text-white mb-1">
-                  KEV Status
-                </h4>
-                <p class="text-neutral-300 text-sm">
-                  Known Exploited Vulnerabilities - CISA's catalog of vulnerabilities actively exploited by threat actors.
-                </p>
-              </div>
-            </div>
-
-            <div class="text-center relative group cursor-help">
-              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                Exploit PoC
-              </p>
-              <p class="text-neutral-100 font-medium">
-                {{ currentData.exploits.length > 0 ? 'Yes' : 'No' }}
-              </p>
-              <div class="tooltip">
-                <h4 class="font-semibold text-white mb-1">
-                  Proof of Concept
-                </h4>
-                <p class="text-neutral-300 text-sm">
-                  Whether public exploit code or demonstrations are available, making the vulnerability easier to exploit.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Packages Affected (OSV) -->
-          <div
-            v-if="(currentData.osv?.length ?? 0) > 0"
-            class="mb-8"
-          >
-            <h3 class="text-lg font-semibold text-neutral-100 mb-4">
-              Packages Affected
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div
-                v-for="(pkg, index) in currentData.osv"
-                :key="`${pkg.ecosystem ?? 'unknown'}-${pkg.package ?? index}`"
-                class="p-4 rounded-lg border border-white/10 bg-white/5"
-              >
-                <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                  {{ pkg.ecosystem || 'Unknown ecosystem' }}
-                </p>
-                <p class="text-neutral-100 font-medium mb-2">
-                  {{ pkg.package || 'Unknown package' }}
-                </p>
-                <ul class="space-y-1">
-                  <li
-                    v-for="(range, rangeIdx) in pkg.ranges"
-                    :key="rangeIdx"
-                    class="text-neutral-300 text-sm"
-                  >
-                    {{ formatOsvRange(range) }}
-                  </li>
-                  <li
-                    v-if="!pkg.ranges || pkg.ranges.length === 0"
-                    class="text-neutral-500 text-sm"
-                  >
-                    Version details unavailable
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <!-- Signals -->
-          <div class="mb-8">
-            <h3 class="text-lg font-semibold text-neutral-100 mb-4">
-              Data Signals
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div class="signal-card relative group cursor-help">
-                <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-2">
-                  <ShieldCheckIcon class="w-4 h-4 text-blue-400" />
-                </div>
-                <p class="text-neutral-100 font-medium text-sm">
-                  NVD
-                </p>
-                <p class="text-neutral-400 text-xs">
-                  Active
-                </p>
-                <div class="tooltip">
-                  <h4 class="font-semibold text-white mb-1">
-                    National Vulnerability Database
-                  </h4>
-                  <p class="text-neutral-300 text-sm">
-                    US government repository of standards-based vulnerability management data. Provides official CVE details and CVSS scores.
-                  </p>
-                </div>
-              </div>
-
-              <div class="signal-card relative group cursor-help">
-                <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
-                  <BoltIcon class="w-4 h-4 text-cyan-400" />
-                </div>
-                <p class="text-neutral-100 font-medium text-sm">
-                  EPSS
-                </p>
-                <p class="text-neutral-400 text-xs">
-                  {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th %ile
-                </p>
-                <div class="tooltip">
-                  <h4 class="font-semibold text-white mb-1">
-                    Exploit Prediction Scoring System
-                  </h4>
-                  <p class="text-neutral-300 text-sm">
-                    Machine learning model that predicts the likelihood of exploitation. This vulnerability ranks in the {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th percentile.
-                  </p>
-                </div>
-              </div>
-
-              <div class="signal-card relative group cursor-help">
-                <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mb-2">
-                  <ExclamationTriangleIcon class="w-4 h-4 text-red-400" />
-                </div>
-                <p class="text-neutral-100 font-medium text-sm">
-                  KEV
-                </p>
-                <p class="text-neutral-400 text-xs">
-                  {{ currentData.kev ? 'Listed' : 'Not listed' }}
-                </p>
-                <div class="tooltip">
-                  <h4 class="font-semibold text-white mb-1">
-                    Known Exploited Vulnerabilities
-                  </h4>
-                  <p class="text-neutral-300 text-sm">
-                    CISA's authoritative list of vulnerabilities known to be actively exploited by malicious actors. {{ currentData.kev ? 'This CVE is actively being exploited.' : 'No active exploitation detected yet.' }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="signal-card relative group cursor-help">
-                <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mb-2">
-                  <FireIcon class="w-4 h-4 text-orange-400" />
-                </div>
-                <p class="text-neutral-100 font-medium text-sm">
-                  ExploitDB
-                </p>
-                <p class="text-neutral-400 text-xs">
-                  {{ currentData.exploits.length }} PoC{{ currentData.exploits.length !== 1 ? 's' : '' }}
-                </p>
-                <div class="tooltip">
-                  <h4 class="font-semibold text-white mb-1">
-                    Exploit Database
-                  </h4>
-                  <p class="text-neutral-300 text-sm">
-                    Archive of public exploits and proof-of-concepts. {{ currentData.exploits.length > 0 ? `Found ${currentData.exploits.length} public exploit(s).` : 'No public exploits found yet.' }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="signal-card relative group cursor-help">
-                <div class="w-8 h-8 bg-neutral-500/20 rounded-lg flex items-center justify-center mb-2">
-                  <ClockIcon class="w-4 h-4 text-neutral-400" />
-                </div>
-                <p class="text-neutral-100 font-medium text-sm">
-                  OSV
-                </p>
-                <p class="text-neutral-400 text-xs">
-                  {{ osvPackagesCount > 0 ? `${osvPackagesCount} package${osvPackagesCount === 1 ? '' : 's'}` : 'No advisories' }}
-                </p>
-                <div class="tooltip">
-                  <h4 class="font-semibold text-white mb-1">
-                    Open Source Vulnerabilities
-                  </h4>
-                  <p class="text-neutral-300 text-sm">
-                    Google's database of vulnerabilities affecting open source projects. {{ osvPackagesCount > 0 ? `OSV lists ${osvPackagesCount} affected package${osvPackagesCount === 1 ? '' : 's'} for this CVE.` : 'No OSV packages are currently linked to this CVE.' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Model Insights -->
-          <div class="mb-8">
-            <h3 class="text-lg font-semibold text-neutral-100 mb-4">
-              Model Insights
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div class="insight-card">
-                <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                  Category
-                </p>
-                <p class="text-neutral-100 font-medium">
-                  {{ formatModelCategory(currentData.modelCategory) }}
-                </p>
-                <p class="text-neutral-400 text-sm mt-2">
-                  Determines which asymmetric Laplace distribution is used to model exploit timing.
-                </p>
-              </div>
-              <div class="insight-card">
-                <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                  Model Parameters (μ, λ, κ)
-                </p>
-                <p class="text-neutral-100 font-medium">
-                  {{ formatModelParams(currentData.modelParams) }}
-                </p>
-                <p class="text-neutral-400 text-sm mt-2">
-                  Captures the shape of the exploit probability curve for this category.
-                </p>
-              </div>
-              <div class="insight-card">
-                <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                  CVSS Vector
-                </p>
-                <p class="text-neutral-100 font-medium break-words">
-                  {{ currentData.cvssVector || 'Vector unavailable' }}
-                </p>
-                <p class="text-neutral-400 text-sm mt-2">
-                  Indicates attack prerequisites such as access, complexity, and required privileges.
-                </p>
-              </div>
-              <div class="insight-card">
-                <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
-                  Computed At
-                </p>
-                <p class="text-neutral-100 font-medium">
-                  {{ formatDateOrFallback(currentData.computedAt) }}
-                </p>
-                <p class="text-neutral-400 text-sm mt-2">
-                  Timestamp of when the SecScore service generated this analysis snapshot.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Timeline -->
-          <div class="mb-8">
-            <h3 class="text-lg font-semibold text-neutral-100 mb-4">
-              Timeline
-            </h3>
-            <div class="relative">
-              <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-neutral-600" />
-              <div class="space-y-6">
-                <div class="flex items-center">
-                  <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center relative z-10">
-                    <PlusIcon class="w-4 h-4 text-white" />
-                  </div>
-                  <div class="ml-4">
-                    <p class="text-neutral-100 font-medium">
-                      CVE Published
-                    </p>
-                    <p class="text-neutral-400 text-sm">
-                      {{ formatDateOrFallback(currentData.publishedDate) }}
-                    </p>
-                  </div>
-                </div>
-                <div
-                  v-if="currentData.exploits.length > 0"
-                  class="flex items-center"
+              <ul class="space-y-1">
+                <li
+                  v-for="(range, rangeIdx) in pkg.ranges"
+                  :key="rangeIdx"
+                  class="text-neutral-300 text-sm"
                 >
-                  <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center relative z-10">
-                    <FireIcon class="w-4 h-4 text-white" />
-                  </div>
-                  <div class="ml-4">
-                    <p class="text-neutral-100 font-medium">
-                      Exploit PoC Published
-                    </p>
-                    <p class="text-neutral-400 text-sm">
-                      {{ formatDateOrFallback(currentData.exploits[0]?.publishedDate ?? null) }}
-                    </p>
-                  </div>
+                  {{ formatOsvRange(range) }}
+                </li>
+                <li
+                  v-if="!pkg.ranges || pkg.ranges.length === 0"
+                  class="text-neutral-500 text-sm"
+                >
+                  Version details unavailable
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signals -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Data Signals
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-2">
+                <ShieldCheckIcon class="w-4 h-4 text-blue-400" />
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
+                NVD
+              </p>
+              <p class="text-neutral-400 text-xs">
+                Active
+              </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  National Vulnerability Database
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  US government repository of standards-based vulnerability management data. Provides official CVE details and CVSS scores.
+                </p>
+              </div>
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-2">
+                <BoltIcon class="w-4 h-4 text-cyan-400" />
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
+                EPSS
+              </p>
+              <p class="text-neutral-400 text-xs">
+                {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th %ile
+              </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Exploit Prediction Scoring System
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Machine learning model that predicts the likelihood of exploitation. This vulnerability ranks in the {{ ((currentData.epss?.percentile || 0) * 100).toFixed(0) }}th percentile.
+                </p>
+              </div>
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mb-2">
+                <ExclamationTriangleIcon class="w-4 h-4 text-red-400" />
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
+                KEV
+              </p>
+              <p class="text-neutral-400 text-xs">
+                {{ currentData.kev ? 'Listed' : 'Not listed' }}
+              </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Known Exploited Vulnerabilities
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  CISA's authoritative list of vulnerabilities known to be actively exploited by malicious actors. {{ currentData.kev ? 'This CVE is actively being exploited.' : 'No active exploitation detected yet.' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mb-2">
+                <FireIcon class="w-4 h-4 text-orange-400" />
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
+                ExploitDB
+              </p>
+              <p class="text-neutral-400 text-xs">
+                {{ currentData.exploits.length }} PoC{{ currentData.exploits.length !== 1 ? 's' : '' }}
+              </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Exploit Database
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Archive of public exploits and proof-of-concepts. {{ currentData.exploits.length > 0 ? `Found ${currentData.exploits.length} public exploit(s).` : 'No public exploits found yet.' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="signal-card relative group cursor-help">
+              <div class="w-8 h-8 bg-neutral-500/20 rounded-lg flex items-center justify-center mb-2">
+                <ClockIcon class="w-4 h-4 text-neutral-400" />
+              </div>
+              <p class="text-neutral-100 font-medium text-sm">
+                OSV
+              </p>
+              <p class="text-neutral-400 text-xs">
+                {{ osvPackagesCount > 0 ? `${osvPackagesCount} package${osvPackagesCount === 1 ? '' : 's'}` : 'No advisories' }}
+              </p>
+              <div class="tooltip">
+                <h4 class="font-semibold text-white mb-1">
+                  Open Source Vulnerabilities
+                </h4>
+                <p class="text-neutral-300 text-sm">
+                  Google's database of vulnerabilities affecting open source projects. {{ osvPackagesCount > 0 ? `OSV lists ${osvPackagesCount} affected package${osvPackagesCount === 1 ? '' : 's'} for this CVE.` : 'No OSV packages are currently linked to this CVE.' }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Insights -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Model Insights
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="insight-card">
+              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+                Category
+              </p>
+              <p class="text-neutral-100 font-medium">
+                {{ formatModelCategory(currentData.modelCategory) }}
+              </p>
+              <p class="text-neutral-400 text-sm mt-2">
+                Determines which asymmetric Laplace distribution is used to model exploit timing.
+              </p>
+            </div>
+            <div class="insight-card">
+              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+                Model Parameters (μ, λ, κ)
+              </p>
+              <p class="text-neutral-100 font-medium">
+                {{ formatModelParams(currentData.modelParams) }}
+              </p>
+              <p class="text-neutral-400 text-sm mt-2">
+                Captures the shape of the exploit probability curve for this category.
+              </p>
+            </div>
+            <div class="insight-card">
+              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+                CVSS Vector
+              </p>
+              <p class="text-neutral-100 font-medium break-words">
+                {{ currentData.cvssVector || 'Vector unavailable' }}
+              </p>
+              <p class="text-neutral-400 text-sm mt-2">
+                Indicates attack prerequisites such as access, complexity, and required privileges.
+              </p>
+            </div>
+            <div class="insight-card">
+              <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
+                Computed At
+              </p>
+              <p class="text-neutral-100 font-medium">
+                {{ formatDateOrFallback(currentData.computedAt) }}
+              </p>
+              <p class="text-neutral-400 text-sm mt-2">
+                Timestamp of when the SecScore service generated this analysis snapshot.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Timeline
+          </h3>
+          <div class="relative">
+            <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-neutral-600" />
+            <div class="space-y-6">
+              <div class="flex items-center">
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center relative z-10">
+                  <PlusIcon class="w-4 h-4 text-white" />
                 </div>
-                <div class="flex items-center">
-                  <div class="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center relative z-10">
-                    <ClockIcon class="w-4 h-4 text-white" />
-                  </div>
-                  <div class="ml-4">
-                    <p class="text-neutral-100 font-medium">
-                      Analysis Computed
-                    </p>
-                    <p class="text-neutral-400 text-sm">
-                      {{ formatDateOrFallback(currentData.computedAt) }}
-                    </p>
-                  </div>
+                <div class="ml-4">
+                  <p class="text-neutral-100 font-medium">
+                    CVE Published
+                  </p>
+                  <p class="text-neutral-400 text-sm">
+                    {{ formatDateOrFallback(currentData.publishedDate) }}
+                  </p>
+                </div>
+              </div>
+              <div
+                v-if="currentData.exploits.length > 0"
+                class="flex items-center"
+              >
+                <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center relative z-10">
+                  <FireIcon class="w-4 h-4 text-white" />
+                </div>
+                <div class="ml-4">
+                  <p class="text-neutral-100 font-medium">
+                    Exploit PoC Published
+                  </p>
+                  <p class="text-neutral-400 text-sm">
+                    {{ formatDateOrFallback(currentData.exploits[0]?.publishedDate ?? null) }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <div class="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center relative z-10">
+                  <ClockIcon class="w-4 h-4 text-white" />
+                </div>
+                <div class="ml-4">
+                  <p class="text-neutral-100 font-medium">
+                    Analysis Computed
+                  </p>
+                  <p class="text-neutral-400 text-sm">
+                    {{ formatDateOrFallback(currentData.computedAt) }}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Explanation -->
-          <div>
-            <h3 class="text-lg font-semibold text-neutral-100 mb-4">
-              Scoring Explanation
-            </h3>
-            <div class="space-y-3">
-              <div
-                v-for="item in currentData.explanation"
-                :key="item.title"
-                class="explanation-card"
-              >
-                <div class="flex items-start justify-between">
-                  <div>
-                    <h4 class="text-neutral-100 font-medium">
-                      {{ item.title }}
-                    </h4>
-                    <p class="text-neutral-400 text-sm mt-1">
-                      {{ item.detail }}
-                    </p>
-                  </div>
-                  <span class="text-xs text-neutral-500 bg-neutral-800 px-2 py-1 rounded">{{ item.source }}</span>
+        <!-- Explanation -->
+        <div>
+          <h3 class="text-lg font-semibold text-neutral-100 mb-4">
+            Scoring Explanation
+          </h3>
+          <div class="space-y-3">
+            <div
+              v-for="item in currentData.explanation"
+              :key="item.title"
+              class="explanation-card"
+            >
+              <div class="flex items-start justify-between">
+                <div>
+                  <h4 class="text-neutral-100 font-medium">
+                    {{ item.title }}
+                  </h4>
+                  <p class="text-neutral-400 text-sm mt-1">
+                    {{ item.detail }}
+                  </p>
                 </div>
+                <span class="text-xs text-neutral-500 bg-neutral-800 px-2 py-1 rounded">{{ item.source }}</span>
               </div>
             </div>
           </div>

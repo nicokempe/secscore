@@ -86,6 +86,8 @@ export interface SecScoreResponse {
   cvssBase: number | null
   /** CVSS vector descriptor string; null when unavailable. */
   cvssVector: string | null
+  /** CVSS specification version parsed from metadata or derived from the vector. */
+  cvssVersion: string | null
   /** Final time-aware SecScore in [0..10], clamped and rounded as per implementation. */
   secscore: number
   /** Asymmetric Laplace CDF probability (0..1) at current tWeeks. */
