@@ -1,5 +1,5 @@
 import { E_MAX, E_MIN_V31, EPSS_BLEND_WEIGHT, KEV_MIN_FLOOR, POC_BONUS_MAX } from '~~/server/lib/constants';
-import type { CvssTemporalMultipliers, EpssSignal, ExploitEvidence } from '~/types/secscore.types';
+import type { CvssTemporalMultipliers, EpssSignal } from '~/types/secscore.types';
 import type { ExplanationParams } from '~/types/secscore-engine.types';
 
 const BASE_DEFAULT: number = 0;
@@ -62,8 +62,8 @@ function inferMinimumExploitabilityFromCvssV4(vector: string | null): number | n
   if (!vector || !vector.startsWith('CVSS:4.0/')) {
     return null;
   }
-  const maturityHigh: number = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
-  const maturityUnproven: number = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
+  const maturityHigh = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
+  const maturityUnproven = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
   if (maturityHigh === null || maturityUnproven === null || maturityHigh <= 0) {
     return null;
   }
@@ -261,7 +261,7 @@ export function buildExplanation(explanationParams: ExplanationParams & { tempor
     });
   }
 
-  const primaryExploitEvidence: ExploitEvidence = explanationParams.exploits[0];
+  const primaryExploitEvidence = explanationParams.exploits[0];
   if (primaryExploitEvidence) {
     const dateText: string = primaryExploitEvidence.publishedDate ? ` (published ${primaryExploitEvidence.publishedDate.split('T')[0]})` : '';
     explanationEntries.push({
