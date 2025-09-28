@@ -1,3 +1,5 @@
+[![SecScore GitHub Banner](./.github/media/banner.svg)](https://github.com/nicokempe/secscore)
+
 # Contributing to Dashio Website
 
 Please follow the guidelines below to keep the codebase clean, secure, and maintainable.

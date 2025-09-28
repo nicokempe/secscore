@@ -1,3 +1,5 @@
+[![SecScore GitHub Banner](./.github/media/banner.svg)](https://github.com/nicokempe/secscore)
+
 # Contributor Covenant Code of Conduct
 
 ## Our Pledge

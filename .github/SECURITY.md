@@ -1,12 +1,14 @@
+[![SecScore GitHub Banner](./.github/media/banner.svg)](https://github.com/nicokempe/secscore)
+
 # Security Policy
 
 Thank you for helping make `secscore` secure and reliable. We take security issues seriously and appreciate your efforts to responsibly disclose vulnerabilities.
 
 ## Supported Versions
 
-| Version | Supported |
-| ------- | --------- |
-| Latest (`main` branch) | ✅ Yes |
+| Version                | Supported      |
+|------------------------|----------------|
+| Latest (`main` branch) | ✅ Yes          |
 | Previous releases      | ⚠️ Best effort |
 
 Security fixes will only be applied to the most recent version. You are encouraged to always use the latest version.
