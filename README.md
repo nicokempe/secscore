@@ -27,6 +27,36 @@ This project is built with **Nuxt 3 + Nitro** and uses **pnpm** as the package m
   corepack prepare pnpm@latest --activate
   ```
 
+## Data sources & refreshing
+
+| Dataset                                                           | Purpose                                              | Refresh guidance                                                                                                                                                     |
+|-------------------------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **CISA Known Exploited Vulnerabilities** (`server/data/kev.json`) | Flags vulnerabilities actively exploited in the wild | `curl -s https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json -o server/data/kev.json` then restart (or run `nitro task kev:refresh`) |
+| **ExploitDB snapshot** (`server/data/exploitdb-index.json`)       | Highlights public PoCs with publish dates            | Regenerate the curated JSON with `cveId`, `url`, and `publishedDate`; restart to load                                                                                |
+| **Model parameters** (`model-params/al-params.json`)              | Controls category-specific exploit timing curves     | Adjust `{ mu, lambda, kappa }` and redeploy/restart                                                                                                                  |
+
+## API surface
+
+| Endpoint                    | Method | Description                                                                                                                                          |
+|-----------------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/api/v1/cve/:cveId`        | GET    | Returns normalised CVE metadata plus SecScore context. Validates identifiers, emits cache headers, and tags responses with `SecScore-Model-Version`. |
+| `/api/health`               | GET    | Exposes process uptime, CPU/memory usage, and KEV dataset metadata for monitoring.                                                                   |
+| `/api/internal/refresh-kev` | GET    | Triggers a KEV dataset refresh (protect behind auth when deploying).                                                                                 |
+
+The public API routes inherit a per-IP rate limit of 120 requests per hour. Cache hits are labelled via an `X-Cache` header so you can monitor effectiveness.
+
+## Configuration
+
+These environment variables customise behaviour at runtime:
+
+| Variable                          | Description                                                             |
+|-----------------------------------|-------------------------------------------------------------------------|
+| `CLOUDFLARE_TURNSTILE_SITE_KEY`   | Enables the Turnstile widget on the frontend when set.                  |
+| `CLOUDFLARE_TURNSTILE_SECRET_KEY` | Required to validate Turnstile tokens server-side.                      |
+| `LOG_LEVEL`                       | Sets client logging verbosity (default `info`).                         |
+| `LOG_REMOTE_ENABLED`              | When `true`, allows forwarding logs to `LOG_SERVER_URL`.                |
+| `LOG_SERVER_URL`                  | Remote logging endpoint (default `https://logs.secscore.net/api/logs`). |
+
 ### Setup
 
 Install all dependencies:
