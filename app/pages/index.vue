@@ -84,7 +84,7 @@
           <!-- Loading Progress Indicators -->
           <div class="space-y-3 max-w-md mx-auto">
             <div
-              v-for="(step, index) in loadingSteps"
+              v-for="(step, index) in loadingStepsSequence"
               :key="step.name"
               class="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10"
               :class="{ 'opacity-50': index > currentLoadingStep }"
@@ -203,7 +203,7 @@
               Published
             </p>
             <p class="text-neutral-100 font-medium">
-              {{ formatDate(currentData.publishedDate) }}
+              {{ formatDateOrFallback(currentData.publishedDate) }}
             </p>
             <div class="tooltip">
               <h4 class="font-semibold text-white mb-1">
@@ -448,7 +448,7 @@
                     CVE Published
                   </p>
                   <p class="text-neutral-400 text-sm">
-                    {{ formatDate(currentData.publishedDate) }}
+                    {{ formatDateOrFallback(currentData.publishedDate) }}
                   </p>
                 </div>
               </div>
@@ -464,7 +464,7 @@
                     Exploit PoC Published
                   </p>
                   <p class="text-neutral-400 text-sm">
-                    {{ formatDate(currentData.exploits[0]?.publishedDate ?? null) }}
+                    {{ formatDateOrFallback(currentData.exploits[0]?.publishedDate ?? null) }}
                   </p>
                 </div>
               </div>
@@ -477,7 +477,7 @@
                     Analysis Computed
                   </p>
                   <p class="text-neutral-400 text-sm">
-                    {{ formatDate(currentData.computedAt) }}
+                    {{ formatDateOrFallback(currentData.computedAt) }}
                   </p>
                 </div>
               </div>
@@ -525,8 +525,8 @@ const apiError = ref('');
 const showResults = ref(false);
 const isLoading = ref(false);
 const currentLoadingStep = ref(0);
-const fallbackLoadingMessage = 'Preparing analysis...';
-const loadingMessage = ref(fallbackLoadingMessage);
+const defaultLoadingMessage = 'Preparing analysis...';
+const loadingMessage = ref(defaultLoadingMessage);
 const notFound = ref(false);
 
 const runtimeConfig = useRuntimeConfig();
@@ -535,12 +535,12 @@ const turnstileToken = ref('');
 type TurnstileComponentInstance = { reset: () => void };
 const turnstileRef = ref<TurnstileComponentInstance | null>(null);
 
-const LOADING_STEP_INTERVAL = 500;
-const LOADING_COMPLETION_INTERVAL = 120;
-let loadingStepTimer: ReturnType<typeof setInterval> | undefined;
-let completionTimer: ReturnType<typeof setInterval> | undefined;
+const LOADING_STEP_INTERVAL_MS = 500;
+const LOADING_COMPLETION_INTERVAL_MS = 120;
+let loadingStepInterval: ReturnType<typeof setInterval> | undefined;
+let loadingCompletionInterval: ReturnType<typeof setInterval> | undefined;
 
-const loadingSteps = [
+const loadingStepsSequence = [
   { name: 'validate', label: 'Validating CVE format' },
   { name: 'fetch_nvd', label: 'Fetching NVD data' },
   { name: 'fetch_epss', label: 'Getting EPSS scores' },
@@ -553,80 +553,80 @@ const secscoreData = ref<SecScoreResponse | null>(null);
 
 const currentData = computed(() => secscoreData.value);
 
-const cveRegex = /^CVE-\d{4}-\d{4,}$/;
+const cveIdentifierPattern = /^CVE-\d{4}-\d{4,}$/;
 
-const stopLoadingProgress = () => {
-  if (loadingStepTimer) {
-    clearInterval(loadingStepTimer);
-    loadingStepTimer = undefined;
+const stopLoadingProgressTimers = () => {
+  if (loadingStepInterval) {
+    clearInterval(loadingStepInterval);
+    loadingStepInterval = undefined;
   }
 
-  if (completionTimer) {
-    clearInterval(completionTimer);
-    completionTimer = undefined;
+  if (loadingCompletionInterval) {
+    clearInterval(loadingCompletionInterval);
+    loadingCompletionInterval = undefined;
   }
 };
 
-const startLoadingProgress = () => {
-  stopLoadingProgress();
+const startLoadingProgressTimers = () => {
+  stopLoadingProgressTimers();
 
-  if (loadingSteps.length === 0) {
-    loadingMessage.value = fallbackLoadingMessage;
+  if (loadingStepsSequence.length === 0) {
+    loadingMessage.value = defaultLoadingMessage;
     return;
   }
 
   currentLoadingStep.value = 0;
-  loadingMessage.value = loadingSteps[0]?.label ?? fallbackLoadingMessage;
+  loadingMessage.value = loadingStepsSequence[0]?.label ?? defaultLoadingMessage;
 
-  if (loadingSteps.length === 1) {
+  if (loadingStepsSequence.length === 1) {
     return;
   }
 
-  loadingStepTimer = setInterval(() => {
-    if (currentLoadingStep.value >= loadingSteps.length - 1) {
-      if (loadingStepTimer) {
-        clearInterval(loadingStepTimer);
-        loadingStepTimer = undefined;
+  loadingStepInterval = setInterval(() => {
+    if (currentLoadingStep.value >= loadingStepsSequence.length - 1) {
+      if (loadingStepInterval) {
+        clearInterval(loadingStepInterval);
+        loadingStepInterval = undefined;
       }
       return;
     }
 
     currentLoadingStep.value += 1;
-    loadingMessage.value = loadingSteps[currentLoadingStep.value]?.label ?? fallbackLoadingMessage;
-  }, LOADING_STEP_INTERVAL);
+    loadingMessage.value = loadingStepsSequence[currentLoadingStep.value]?.label ?? defaultLoadingMessage;
+  }, LOADING_STEP_INTERVAL_MS);
 };
 
-const completeLoadingProgress = async (finalMessage: string) =>
+const completeLoadingProgressSequence = async (finalMessage: string) =>
   new Promise<void>((resolve) => {
-    stopLoadingProgress();
+    stopLoadingProgressTimers();
 
-    if (loadingSteps.length === 0) {
+    if (loadingStepsSequence.length === 0) {
       loadingMessage.value = finalMessage;
       resolve();
       return;
     }
 
-    const finalize = () => {
-      stopLoadingProgress();
-      currentLoadingStep.value = loadingSteps.length;
+    const finalizeLoadingCompletion = () => {
+      stopLoadingProgressTimers();
+      currentLoadingStep.value = loadingStepsSequence.length;
       loadingMessage.value = finalMessage;
       resolve();
     };
 
-    if (currentLoadingStep.value >= loadingSteps.length - 1) {
-      finalize();
+    if (currentLoadingStep.value >= loadingStepsSequence.length - 1) {
+      finalizeLoadingCompletion();
       return;
     }
 
-    completionTimer = setInterval(() => {
-      if (currentLoadingStep.value < loadingSteps.length - 1) {
+    loadingCompletionInterval = setInterval(() => {
+      if (currentLoadingStep.value < loadingStepsSequence.length - 1) {
         currentLoadingStep.value += 1;
-        loadingMessage.value = loadingSteps[currentLoadingStep.value]?.label ?? fallbackLoadingMessage;
+        loadingMessage.value = loadingStepsSequence[currentLoadingStep.value]?.label ?? defaultLoadingMessage;
         return;
       }
 
-      finalize();
-    }, LOADING_COMPLETION_INTERVAL);
+      finalizeLoadingCompletion();
+    }, LOADING_COMPLETION_INTERVAL_MS);
   });
 
 const analyzeCve = async () => {
@@ -638,9 +638,9 @@ const analyzeCve = async () => {
     return;
   }
 
-  const normalizedCveId = cveInput.value.trim().toUpperCase();
+  const normalizedCveIdentifier = cveInput.value.trim().toUpperCase();
 
-  if (!cveRegex.test(normalizedCveId)) {
+  if (!cveIdentifierPattern.test(normalizedCveIdentifier)) {
     inputError.value = 'Invalid CVE format. Use format: CVE-YYYY-NNNN';
     return;
   }
@@ -650,17 +650,17 @@ const analyzeCve = async () => {
     return;
   }
 
-  cveInput.value = normalizedCveId;
+  cveInput.value = normalizedCveIdentifier;
 
   // Start loading sequence
   secscoreData.value = null;
   isLoading.value = true;
   showResults.value = false;
   notFound.value = false;
-  startLoadingProgress();
+  startLoadingProgressTimers();
 
-  let completionMessage = 'SecScore ready';
-  let shouldDisplayResults = false;
+  let finalCompletionMessage = 'SecScore ready';
+  let shouldShowResults = false;
 
   try {
     const headers: Record<string, string> = {};
@@ -668,30 +668,30 @@ const analyzeCve = async () => {
       headers['cf-turnstile-response'] = turnstileToken.value;
     }
 
-    const data = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveId)}`, {
+    const enrichmentResponse = await $fetch<SecScoreResponse>(`/api/v1/enrich/cve/${encodeURIComponent(normalizedCveIdentifier)}`, {
       headers,
     });
-    secscoreData.value = data;
-    shouldDisplayResults = true;
+    secscoreData.value = enrichmentResponse;
+    shouldShowResults = true;
     notFound.value = false;
   }
   catch (error: unknown) {
-    const statusCode = extractStatusCode(error);
+    const errorStatusCode = extractStatusCodeFromError(error);
 
-    if (statusCode === 404) {
+    if (errorStatusCode === 404) {
       notFound.value = true;
       apiError.value = '';
-      completionMessage = 'CVE not found';
+      finalCompletionMessage = 'CVE not found';
     }
     else {
-      apiError.value = resolveErrorMessage(error);
-      completionMessage = 'Failed to analyze CVE';
+      apiError.value = resolveErrorMessageFromUnknown(error);
+      finalCompletionMessage = 'Failed to analyze CVE';
     }
   }
   finally {
-    await completeLoadingProgress(completionMessage);
+    await completeLoadingProgressSequence(finalCompletionMessage);
     isLoading.value = false;
-    showResults.value = shouldDisplayResults;
+    showResults.value = shouldShowResults;
     if (isTurnstileEnabled.value) {
       turnstileRef.value?.reset();
       turnstileToken.value = '';
@@ -699,7 +699,7 @@ const analyzeCve = async () => {
   }
 };
 
-const formatDate = (dateString: string | null): string => {
+const formatDateOrFallback = (dateString: string | null): string => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -708,10 +708,10 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isNonNullRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
-const extractStatusCode = (error: unknown): number | null => {
-  if (!isRecord(error)) {
+const extractStatusCodeFromError = (error: unknown): number | null => {
+  if (!isNonNullRecord(error)) {
     return null;
   }
 
@@ -725,7 +725,7 @@ const extractStatusCode = (error: unknown): number | null => {
 
   if ('response' in error) {
     const response = (error as { response?: unknown }).response;
-    if (isRecord(response) && typeof response.status === 'number') {
+    if (isNonNullRecord(response) && typeof response.status === 'number') {
       return response.status;
     }
   }
@@ -733,7 +733,7 @@ const extractStatusCode = (error: unknown): number | null => {
   return null;
 };
 
-const resolveErrorMessage = (error: unknown): string => {
+const resolveErrorMessageFromUnknown = (error: unknown): string => {
   if (typeof error === 'string') {
     return error;
   }
@@ -742,10 +742,10 @@ const resolveErrorMessage = (error: unknown): string => {
     return error.message;
   }
 
-  if (isRecord(error)) {
+  if (isNonNullRecord(error)) {
     if ('data' in error) {
       const data = (error as { data?: unknown }).data;
-      if (isRecord(data) && typeof data.message === 'string') {
+      if (isNonNullRecord(data) && typeof data.message === 'string') {
         return data.message;
       }
     }
@@ -773,39 +773,39 @@ const truncateText = (value: string, maxLength = MAX_OSV_RANGE_LENGTH): string =
 };
 
 const formatOsvEvent = (event: OsvRangeEvent): string | null => {
-  const fragments: string[] = [];
+  const eventSegments: string[] = [];
 
   if (event.introduced) {
-    fragments.push(`>= ${event.introduced}`);
+    eventSegments.push(`>= ${event.introduced}`);
   }
 
   if (event.fixed) {
-    fragments.push(`< ${event.fixed}`);
+    eventSegments.push(`< ${event.fixed}`);
   }
 
   if (event.lastAffected) {
-    fragments.push(`<= ${event.lastAffected}`);
+    eventSegments.push(`<= ${event.lastAffected}`);
   }
 
   if (event.limit) {
-    fragments.push(event.limit);
+    eventSegments.push(event.limit);
   }
 
-  if (fragments.length === 0) {
+  if (eventSegments.length === 0) {
     return null;
   }
 
-  return fragments.join(' / ');
+  return eventSegments.join(' / ');
 };
 
 const formatOsvRange = (range: OsvVersionRange): string => {
-  const parts: string[] = [];
+  const rangeSegments: string[] = [];
 
   if (range.type) {
-    parts.push(range.type);
+    rangeSegments.push(range.type);
   }
 
-  const eventDescriptions = (range.events ?? [])
+  const formattedEventDescriptions = (range.events ?? [])
     .map((event) => {
       return formatOsvEvent(event);
     })
@@ -813,17 +813,17 @@ const formatOsvRange = (range: OsvVersionRange): string => {
       return Boolean(value);
     });
 
-  if (eventDescriptions.length > 0) {
-    parts.push(eventDescriptions.join('; '));
+  if (formattedEventDescriptions.length > 0) {
+    rangeSegments.push(formattedEventDescriptions.join('; '));
   }
 
-  const text = parts.join(' • ') || 'Version range unavailable';
+  const rangeSummary = rangeSegments.join(' • ') || 'Version range unavailable';
 
-  return truncateText(text);
+  return truncateText(rangeSummary);
 };
 
 onBeforeUnmount(() => {
-  stopLoadingProgress();
+  stopLoadingProgressTimers();
 });
 
 useSeoMeta({
