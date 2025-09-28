@@ -220,15 +220,14 @@ export async function fetchOsv(cveId: string): Promise<OsvAffectedPackage[] | nu
       return null;
     }
 
-    console.log(
-      JSON.stringify({
-        time: new Date().toISOString(),
-        level: 'error',
-        msg: 'Failed to fetch OSV data',
-        errorType: 'OsvFetchError',
-        context: { cveId, error: error instanceof Error ? error.message : String(error) },
-      }),
-    );
+    const logger = useLogger();
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    const meta = {
+      cveId,
+      error: errorMessage,
+      ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
+    };
+    logger.error('osv.fetch_failed', meta);
     return null;
   }
 }
