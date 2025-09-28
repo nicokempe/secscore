@@ -7,7 +7,7 @@ import type { CvssTemporalMultipliers, CveMetadata, EpssSignal, ExploitEvidence,
 import type {
   ExploitDbRecord,
   HttpErrorLike,
-  NvdConfigurationNode, NvdCpeMatch,
+  NvdConfigurationNode,
   NvdCve,
   NvdCvssMetric,
   NvdResponse,
