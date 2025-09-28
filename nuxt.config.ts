@@ -44,7 +44,7 @@ export default defineNuxtConfig({
       logging: {
         logLevel: process.env.LOG_LEVEL || 'info',
         remoteLoggingEnabled: process.env.LOG_REMOTE_ENABLED === 'true',
-        remoteLogServerUrl: process.env.LOG_SERVER_URL || 'https://logs.dashio.net/api/logs',
+        remoteLogServerUrl: process.env.LOG_SERVER_URL || 'https://logs.secscore.net/api/logs',
       },
     },
   },
