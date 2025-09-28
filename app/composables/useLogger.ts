@@ -1,8 +1,6 @@
-import type { IncomingMessage } from 'node:http';
 import type {
   GlobalWithUseRoute,
   Logger,
-  LoggerEventContext,
   LoggerRouteInfo,
   LogLevel,
   LogMeta,
@@ -23,39 +21,15 @@ const logLevelPriority: Record<LogLevel, number> = {
  * Includes route, method, path, and request ID if available.
  */
 function getContextMetadata(): LogMeta {
-  if (!import.meta.server) {
-    // Client side: we can only try to read the route name (optional).
-    const globalWithRoute = globalThis as GlobalWithUseRoute;
-    const route: LoggerRouteInfo | undefined = globalWithRoute.useRoute?.();
-    const routeName: string | undefined = route?.name;
-    return routeName ? { route: routeName } : {};
-  }
-
-  try {
-    const event = useRequestEvent();
-    if (!event) return {};
-
-    // Read HTTP method safely.
-    const req: IncomingMessage | undefined = event.node?.req as IncomingMessage | undefined;
-    const method: string | undefined = req?.method;
-
-    // `event.path` is a string on server.
-    const path: string | undefined = event.path;
-
-    // Pull a typed `requestId` if your app attaches it to `event.context`.
-    // Context is untyped, so we narrow it safely without `any`.
-    const requestId: string | undefined = (event.context as LoggerEventContext | undefined)?.requestId;
-
-    const context: LogMeta = {};
-    if (requestId) context.requestId = requestId;
-    if (method) context.method = method;
-    if (path) context.path = path;
-
-    return context;
-  }
-  catch {
+  if (!import.meta.client) {
     return {};
   }
+
+  const globalWithRoute = globalThis as GlobalWithUseRoute;
+  const route: LoggerRouteInfo | undefined = globalWithRoute.useRoute?.();
+  const routeName: string | undefined = route?.name;
+
+  return routeName ? { route: routeName } : {};
 }
 
 /**

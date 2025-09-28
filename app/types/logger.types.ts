@@ -5,11 +5,6 @@ export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
 
 export type LogMeta = Record<string, unknown>;
 
-/** Optional context fields that may be attached to the Nitro event. */
-export interface LoggerEventContext {
-  requestId?: string
-}
-
 /** Narrow type for `useRoute()` when available on the client. */
 export interface LoggerRouteInfo {
   name?: string
