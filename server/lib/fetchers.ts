@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { useLogger } from '~/composables/useLogger';
 import { $fetch } from 'ofetch';
 import { FETCH_TIMEOUT_MS } from '~~/server/lib/constants';
 import type { CveMetadata, EpssSignal, ExploitEvidence, OsvAffectedPackage } from '~/types/secscore.types';
@@ -103,15 +104,14 @@ export async function fetchNvdMetadata(cveId: string): Promise<CveMetadata> {
       throw error;
     }
 
-    console.log(
-      JSON.stringify({
-        time: new Date().toISOString(),
-        level: 'error',
-        msg: 'Failed to fetch NVD metadata',
-        errorType: 'NvdFetchError',
-        context: { cveId, error: error instanceof Error ? error.message : String(error) },
-      }),
-    );
+    const logger = useLogger();
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    const meta = {
+      cveId,
+      error: errorMessage,
+      ...(isHttpErrorLike(error) ? { statusCode: error.statusCode } : {}),
+    };
+    logger.error('nvd.fetch_failed', meta);
     return defaultMetadata;
   }
 }
@@ -132,8 +132,8 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
       return null;
     }
 
-    const score = Number.parseFloat(record.epss);
-    const percentile = Number.parseFloat(record.percentile);
+    const score: number = Number.parseFloat(record.epss);
+    const percentile: number = Number.parseFloat(record.percentile);
     if (Number.isNaN(score) || Number.isNaN(percentile)) {
       return null;
     }
@@ -144,7 +144,13 @@ export async function fetchEpss(cveId: string): Promise<EpssSignal | null> {
       fetchedAt: new Date().toISOString(),
     };
   }
-  catch {
+  catch (error) {
+    const logger = useLogger();
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    logger.warn('epss.fetch_failed', {
+      cveId,
+      error: errorMessage,
+    });
     return null;
   }
 }
@@ -154,12 +160,17 @@ function loadExploitDbIndex(): void {
     return;
   }
   try {
-    const filePath = resolve(process.cwd(), 'server/data/exploitdb-index.json');
-    const fileContents = readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(fileContents) as ExploitDbRecord[];
+    const filePath: string = resolve(process.cwd(), 'server/data/exploitdb-index.json');
+    const fileContents: string = readFileSync(filePath, 'utf8');
+    const parsed: ExploitDbRecord[] = JSON.parse(fileContents) as ExploitDbRecord[];
     exploitDbRecords = parsed.filter(record => typeof record.cveId === 'string');
   }
-  catch {
+  catch (error) {
+    const logger = useLogger();
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    logger.warn('exploitdb.index_load_failed', {
+      error: errorMessage,
+    });
     exploitDbRecords = [];
   }
 }

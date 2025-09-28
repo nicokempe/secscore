@@ -1,6 +1,12 @@
 import type { IncomingMessage } from 'node:http';
-import type { H3Event } from 'h3';
-import type { LogLevel, LogMeta } from '~/utils/formatters';
+import type {
+  GlobalWithUseRoute,
+  Logger,
+  LoggerEventContext,
+  LoggerRouteInfo,
+  LogLevel,
+  LogMeta,
+} from '~/types/logger.types';
 import { formatConsoleLog, formatRemoteLogPayload } from '~/utils/formatters';
 
 /** Priority mapping used to filter logs based on configured level. */
@@ -12,21 +18,6 @@ const logLevelPriority: Record<LogLevel, number> = {
   error: 4,
 };
 
-/** Optional context fields we might attach in Nitro. */
-interface LoggerEventContext {
-  requestId?: string
-}
-
-/** Narrow type for `useRoute()` when available on client. */
-interface MaybeRoute {
-  name?: string
-}
-
-/** Global type that may expose `useRoute` on the client. */
-type GlobalWithUseRoute = typeof globalThis & {
-  useRoute?: () => MaybeRoute
-};
-
 /**
  * Extracts contextual metadata from the current Nitro request.
  * Includes route, method, path, and request ID if available.
@@ -34,13 +25,14 @@ type GlobalWithUseRoute = typeof globalThis & {
 function getContextMetadata(): LogMeta {
   if (!import.meta.server) {
     // Client side: we can only try to read the route name (optional).
-    const routeName: string | undefined = (globalThis as GlobalWithUseRoute).useRoute?.()?.name;
+    const globalWithRoute = globalThis as GlobalWithUseRoute;
+    const route: LoggerRouteInfo | undefined = globalWithRoute.useRoute?.();
+    const routeName: string | undefined = route?.name;
     return routeName ? { route: routeName } : {};
   }
 
   try {
-    // `useRequestEvent()` returns `H3Event | undefined`.
-    const event = useRequestEvent() as H3Event | undefined;
+    const event = useRequestEvent();
     if (!event) return {};
 
     // Read HTTP method safely.
@@ -64,20 +56,6 @@ function getContextMetadata(): LogMeta {
   catch {
     return {};
   }
-}
-
-/** Public logger interface exposing synchronous methods. */
-export interface Logger {
-  /** Log at debug level. */
-  debug: (message: string, meta?: LogMeta) => void
-  /** Log at info level. */
-  info: (message: string, meta?: LogMeta) => void
-  /** Log at success level. */
-  success: (message: string, meta?: LogMeta) => void
-  /** Log at warn level. */
-  warn: (message: string, meta?: LogMeta) => void
-  /** Log at error level. */
-  error: (message: string, meta?: LogMeta) => void
 }
 
 /**
@@ -118,17 +96,21 @@ export const useLogger = (): Logger => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: formatRemoteLogPayload(level, message, combinedMeta),
-      }).catch((err: unknown): void => {
-        console.error('Remote logging failed: ', err);
+      }).catch((error: unknown): void => {
+        const errorMessage: string = error instanceof Error ? error.message : String(error);
+        formatConsoleLog('error', 'Remote logging failed', {
+          error: errorMessage,
+          url: remoteLogServerUrl,
+        });
       });
     }
   }
 
   return {
-    debug: (msg: string, meta?: LogMeta): void => log('debug', msg, meta),
-    info: (msg: string, meta?: LogMeta): void => log('info', msg, meta),
-    success: (msg: string, meta?: LogMeta): void => log('success', msg, meta),
-    warn: (msg: string, meta?: LogMeta): void => log('warn', msg, meta),
-    error: (msg: string, meta?: LogMeta): void => log('error', msg, meta),
+    debug: (message: string, meta?: LogMeta): void => log('debug', message, meta),
+    info: (message: string, meta?: LogMeta): void => log('info', message, meta),
+    success: (message: string, meta?: LogMeta): void => log('success', message, meta),
+    warn: (message: string, meta?: LogMeta): void => log('warn', message, meta),
+    error: (message: string, meta?: LogMeta): void => log('error', message, meta),
   };
 };

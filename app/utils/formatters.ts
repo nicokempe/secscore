@@ -2,8 +2,7 @@
 // Logging helpers
 // ─────────────────────────────────────────────────────────────
 
-export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
-export type LogMeta = Record<string, unknown>;
+import type { LogLevel, LogMeta } from '~/types/logger.types';
 
 const CYAN = '\x1b[36m';
 const GREEN = '\x1b[32m';

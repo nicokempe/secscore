@@ -1,3 +1,4 @@
+import { useLogger } from '~/composables/useLogger';
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { defineNitroPlugin } from 'nitropack/runtime';
@@ -37,28 +38,21 @@ function scheduleInitialRefresh(): void {
   void refreshKevFromRemote();
 }
 
-function log(level: 'info' | 'warn', msg: string, context?: Record<string, unknown>): void {
-  const payload = {
-    time: new Date().toISOString(),
-    level,
-    msg,
-    ...(context ?? {}),
-  };
-  console.log(JSON.stringify(payload));
-}
-
 async function ensureCacheDirectory(): Promise<void> {
   try {
     await mkdir(dirname(cacheFilePath), { recursive: true });
   }
   catch (error) {
-    log('warn', 'kev.cache_dir_failed', {
-      error: error instanceof Error ? error.message : String(error),
+    const logger = useLogger();
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    logger.warn('kev.cache_dir_failed', {
+      error: errorMessage,
     });
   }
 }
 
 async function hydrateFromLocalSources(): Promise<void> {
+  const logger = useLogger();
   let source: 'cache' | 'fallback' | 'empty' = 'empty';
   let compact = loadCompactFromDisk(cacheFilePath);
   if (compact) {
@@ -73,8 +67,9 @@ async function hydrateFromLocalSources(): Promise<void> {
         await saveCompactToDisk(cacheFilePath, compact);
       }
       catch (error) {
-        log('warn', 'kev.cache_write_failed', {
-          error: error instanceof Error ? error.message : String(error),
+        const errorMessage: string = error instanceof Error ? error.message : String(error);
+        logger.warn('kev.cache_write_failed', {
+          error: errorMessage,
         });
       }
     }
@@ -82,7 +77,7 @@ async function hydrateFromLocalSources(): Promise<void> {
 
   if (compact) {
     hydrateRuntime(compact);
-    log('info', 'kev.bootstrap', {
+    logger.info('kev.bootstrap', {
       source,
       count: compact.items.length,
       updatedAt: compact.updatedAt,
@@ -95,7 +90,7 @@ async function hydrateFromLocalSources(): Promise<void> {
     items: [],
   };
   hydrateRuntime(empty);
-  log('warn', 'kev.bootstrap_missing', { source });
+  logger.warn('kev.bootstrap_missing', { source });
 }
 
 function buildRequestHeaders(): Headers {
@@ -169,12 +164,13 @@ export async function ensureKevInitialized(): Promise<void> {
 }
 
 export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
+  const logger = useLogger();
   try {
     const headers: Headers = buildRequestHeaders();
     const response: Response = await fetchWithTimeout(KEV_FEED_URL, headers);
     if (response.status === 304) {
       const metadata: KevRuntimeMetadata = getRuntimeMetadata();
-      log('info', 'kev.refresh', {
+      logger.info('kev.refresh', {
         changed: false,
         status: response.status,
         count: getKevSet().size,
@@ -193,7 +189,7 @@ export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
     };
     await saveCompactToDisk(cacheFilePath, next);
     hydrateRuntime(next);
-    log('info', 'kev.refresh', {
+    logger.info('kev.refresh', {
       changed: true,
       status: response.status,
       count: next.items.length,
@@ -202,8 +198,9 @@ export async function refreshKevFromRemote(): Promise<KevRefreshResult> {
     return { changed: true, count: next.items.length, updatedAt: next.updatedAt };
   }
   catch (error) {
-    log('warn', 'kev.refresh_failed', {
-      error: error instanceof Error ? error.message : String(error),
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    logger.warn('kev.refresh_failed', {
+      error: errorMessage,
     });
     const metadata = getRuntimeMetadata();
     const updatedAt = metadata.updatedAt ?? new Date().toISOString();
@@ -218,8 +215,10 @@ export default defineNitroPlugin((nitroApp): void => {
       scheduleInitialRefresh();
     }
     catch (error) {
-      log('warn', 'kev.bootstrap_failed', {
-        error: error instanceof Error ? error.message : String(error),
+      const logger = useLogger();
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      logger.warn('kev.bootstrap_failed', {
+        error: errorMessage,
       });
     }
   });

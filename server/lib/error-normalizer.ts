@@ -1,3 +1,4 @@
+import { useLogger } from '~/composables/useLogger';
 import { H3Error } from 'h3';
 import type { NormalizedError } from '~/types/error.types';
 
@@ -39,15 +40,12 @@ export function normalizeServerError(error: unknown): NormalizedError {
     errorType = 'StringError';
   }
 
-  const logPayload = {
-    time: new Date().toISOString(),
-    level: 'error' as const,
-    msg: message,
+  const logger = useLogger();
+  logger.error(message, {
     errorType,
-    context: details ?? null,
-  };
-
-  console.log(JSON.stringify(logPayload));
+    statusCode,
+    details: details ?? null,
+  });
 
   return { statusCode, message, details };
 }
