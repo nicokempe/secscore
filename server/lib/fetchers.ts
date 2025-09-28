@@ -115,6 +115,19 @@ function reportConfidenceMultiplierFromValue(value: string | undefined): number 
   return CVSS_V3_RC_CODES[normalized] ?? CVSS_V3_RC_TEXT[normalized] ?? null;
 }
 
+function extractCvssVersion(
+  cvssData: NvdCvssMetric['cvssData'] | NvdCvssMetric['baseMetrics'] | undefined,
+): string | null {
+  if (!cvssData || typeof cvssData !== 'object') {
+    return null;
+  }
+  if ('version' in cvssData) {
+    const value = (cvssData as { version?: unknown }).version;
+    return typeof value === 'string' ? value : null;
+  }
+  return null;
+}
+
 function parseCvssVector(vector: string | null): { version: string | null, metrics: Record<string, string> } {
   if (!vector) {
     return { version: null, metrics: {} };
@@ -167,12 +180,13 @@ function selectCvssMetric(cve: NvdCve): {
   const baseScoreCandidate = cvssData?.baseScore ?? cvssData?.score ?? null;
   const baseScore = typeof baseScoreCandidate === 'number' ? baseScoreCandidate : null;
   const multipliers = deriveTemporalMultipliers(metric, vectorString);
+  const version = extractCvssVersion(cvssData);
 
   return {
     metric,
     vector: vectorString,
     baseScore,
-    version: cvssData?.version ?? parsed.version,
+    version: version ?? parsed.version,
     multipliers,
   };
 }

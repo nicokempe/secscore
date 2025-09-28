@@ -37,9 +37,9 @@ function tryComputeEminFromCvssV4(vector: string | null): number | null {
   if (!vector || !vector.startsWith('CVSS:4.0/')) {
     return null;
   }
-  const eHigh = CVSS_V4_EXPLOIT_MATURITY.A;
-  const eUnproven = CVSS_V4_EXPLOIT_MATURITY.U;
-  if (eHigh <= 0) {
+  const eHigh = CVSS_V4_EXPLOIT_MATURITY.A ?? null;
+  const eUnproven = CVSS_V4_EXPLOIT_MATURITY.U ?? null;
+  if (eHigh === null || eUnproven === null || eHigh <= 0) {
     return null;
   }
   return clamp01(eUnproven / eHigh);
