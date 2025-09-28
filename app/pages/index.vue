@@ -243,8 +243,11 @@
               <p class="text-neutral-300 text-sm">
                 Identifies whether the vulnerability was scored with CVSS v3.x or v4.0.
               </p>
-              <p class="text-neutral-500 text-xs break-words">
-                Vector: {{ currentData.cvssVector || 'Not published by NVD.' }}
+              <p
+                class="text-neutral-100 font-medium break-words text-xs max-h-16 overflow-auto whitespace-pre-wrap rounded-md bg-neutral-900/40 border border-white/10 p-2"
+                :title="currentData.cvssVector || 'Vector unavailable'"
+              >
+                {{ currentData.cvssVector || 'Vector unavailable' }}
               </p>
             </div>
           </div>
@@ -470,7 +473,7 @@
           <h3 class="text-lg font-semibold text-neutral-100 mb-4">
             Model Insights
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="grid md:grid-cols-1 xl:grid-cols-2 gap-4">
             <div class="insight-card">
               <p class="text-neutral-400 text-xs uppercase tracking-wide mb-1">
                 Category
