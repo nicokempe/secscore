@@ -95,7 +95,7 @@ export function inferCategory(cpeList: string[]): string {
     return 'default';
   }
 
-  const normalizedCpeEntries = cpeList.map(cpe => cpe.toLowerCase());
+  const normalizedCpeEntries: string[] = cpeList.map(cpe => cpe.toLowerCase());
   const cpeIncludesNeedle = (needle: string): boolean => normalizedCpeEntries.some(entry => entry.includes(needle));
 
   // 1. PHP-centric stacks and CMS ecosystems.
@@ -228,7 +228,7 @@ export function computeSecScore(scoreInput: ComputeSecScoreArgs): ComputeSecScor
     intermediateScore = KEV_MIN_FLOOR;
   }
 
-  const normalizedFinalScore = roundToNearestTenth(clamp(intermediateScore, 0, 10));
+  const normalizedFinalScore: number = roundToNearestTenth(clamp(intermediateScore, 0, 10));
   return {
     secscore: normalizedFinalScore,
     temporalKernel,

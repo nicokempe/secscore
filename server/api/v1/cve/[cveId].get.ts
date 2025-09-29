@@ -7,8 +7,8 @@ import { lruGet, lruSet } from '~~/server/lib/lru-cache';
 import { normalizeServerError } from '~~/server/lib/error-normalizer';
 import type { CveMetadata } from '~/types/secscore.types';
 
-const CACHE_CONTROL_HEADER = 'public, max-age=3600, stale-while-revalidate=86400';
-const MODEL_VERSION = '1';
+const CACHE_CONTROL_HEADER: string = 'public, max-age=3600, stale-while-revalidate=86400';
+const MODEL_VERSION: string = '1';
 
 export default defineEventHandler(async (event) => {
   const requestId = randomUUID();

@@ -1,6 +1,7 @@
 import { useLogger } from '~/composables/useLogger';
 import { H3Error } from 'h3';
 import type { NormalizedError } from '~/types/error.types';
+import type { Logger } from '~/types/logger.types';
 
 const DEFAULT_ERROR_MESSAGE = 'Internal Server Error';
 
@@ -8,10 +9,10 @@ const DEFAULT_ERROR_MESSAGE = 'Internal Server Error';
  * Normalizes thrown values into structured HTTP-friendly errors while emitting structured JSON logs.
  */
 export function normalizeServerError(error: unknown): NormalizedError {
-  let statusCode = 500;
-  let message = DEFAULT_ERROR_MESSAGE;
+  let statusCode: number = 500;
+  let message: string = DEFAULT_ERROR_MESSAGE;
   let details: unknown;
-  let errorType = 'UnknownError';
+  let errorType: string = 'UnknownError';
 
   if (error instanceof H3Error) {
     statusCode = error.statusCode ?? 500;
@@ -40,7 +41,7 @@ export function normalizeServerError(error: unknown): NormalizedError {
     errorType = 'StringError';
   }
 
-  const logger = useLogger();
+  const logger: Logger = useLogger();
   logger.error(message, {
     errorType,
     statusCode,

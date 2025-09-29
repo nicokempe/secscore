@@ -17,7 +17,7 @@ function parseIntervalHours(): number {
   return parsed;
 }
 
-export default defineNitroPlugin((nitroApp: NitroApp) => {
+export default defineNitroPlugin((nitroApp: NitroApp): void => {
   if (process.env.DISABLE_KEV_SCHEDULER === '1') {
     return;
   }

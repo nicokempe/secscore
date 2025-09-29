@@ -252,7 +252,7 @@ export default defineNitroPlugin((nitroApp): void => {
       scheduleInitialRefresh();
     }
     catch (error) {
-      const logger = useLogger();
+      const logger: Logger = useLogger();
       const errorMessage: string = error instanceof Error ? error.message : String(error);
       logger.warn('kev.bootstrap_failed', {
         error: errorMessage,
