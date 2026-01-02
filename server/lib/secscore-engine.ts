@@ -2,6 +2,21 @@ import { E_MAX, E_MIN_V31, EPSS_BLEND_WEIGHT, KEV_MIN_FLOOR, POC_BONUS_MAX } fro
 import type { CvssTemporalMultipliers, EpssSignal } from '~/types/secscore.types';
 import type { ExplanationParams } from '~/types/secscore-engine.types';
 
+// Parses a normalized CPE string. Returns the product field lowercased, or null if parse fails.
+function parseCpeProduct(entry: string): string | null {
+  // Typical CPE: cpe:2.3:a:microsoft:asp.net:*
+  const parts = entry.split(':');
+  // CPE formatted strings have 'cpe' or 'cpe23', then possibly version, then part ('a', 'o', 'h'), then vendor, product, version, update ...
+  // Product is typically the 4th or 5th field, depending on normalization, e.g. cpe:2.3:a:vendor:product:...
+  // Find 'a','o','h' and get product field after vendor
+  const idx = parts.findIndex(p => p === 'a' || p === 'o' || p === 'h');
+  if (idx >= 0 && parts.length > idx + 2) {
+    // vendor: parts[idx+1], product: parts[idx+2]
+    return parts[idx+2]?.toLowerCase() || null;
+  }
+  return null;
+}
+
 const BASE_DEFAULT: number = 0;
 const EXPONENT_BOUND: number = 50;
 const CVSS_V4_EXPLOIT_MATURITY: Record<string, number> = {
@@ -138,7 +153,10 @@ export function inferCategory(cpeList: string[]): string {
   }
 
   // 7. ASP.NET applications.
-  if (normalizedCpeEntries.some(entry => entry.includes('asp.net') || entry.includes('aspnet'))) {
+  if (normalizedCpeEntries.some(entry => {
+    const product = parseCpeProduct(entry);
+    return product === 'asp.net' || product === 'aspnet';
+  })) {
     return 'asp';
   }
 
